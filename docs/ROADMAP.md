@@ -28,8 +28,14 @@ tasks.
 - `tooling/ai_efficiency_mcp_server.py` exposes the core operations as MCP tools
   (`search_memory`, `build_task_package`, `register_project`,
   `update_task_run_state`, `writeback_and_sync_memory`, `doctor_local_skills`)
-- Goal: a clean, documented tool surface any MCP-capable client can call
-- Next: tool schemas, capability discovery, and a conformance test suite
+- ✅ Every tool declares `inputSchema` + `outputSchema` with per-field
+  descriptions and a title; `initialize` negotiates `protocolVersion`; `ping`
+  is supported
+- ✅ Zero-dependency conformance suite validates handshake, discovery, and that
+  each tool's live output matches its declared schema
+  (`tooling/tests/test_mcp_conformance.py`, `tooling/jsonschema_mini.py`)
+- ✅ `bin/context-pack.sh` emits a model-agnostic context pack for raw-API models
+- Next: per-provider adapter layer (Phase 2)
 
 ### Phase 2 — Model-agnostic adapter layer
 - Thin adapters so the same tools work across model/runtime providers

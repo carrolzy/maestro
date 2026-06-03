@@ -57,6 +57,10 @@
 build/
 dist/
 
+# Agent runtime config (may hold tokens/credentials — never publish)
+/.claude/
+/.codex/
+
 # OS / editor noise
 .DS_Store
 *.swp

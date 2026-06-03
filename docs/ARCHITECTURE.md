@@ -56,16 +56,24 @@ by construction. Integration happens at the edges:
 - **MCP clients (Claude, Cursor, any MCP-capable agent):** run the MCP server
   (`tooling/ai_efficiency_mcp_server.py`). It exposes `search_memory`,
   `build_task_package`, `register_project`, `update_task_run_state`,
-  `writeback_and_sync_memory`, and `doctor_local_skills` as tools. This is the
-  primary cross-model bridge.
+  `writeback_and_sync_memory`, and `doctor_local_skills` as tools. Each tool
+  declares a full `inputSchema` **and** `outputSchema` (with per-field
+  descriptions and a human title), so any client can discover its exact
+  request/response shape. The server negotiates the MCP `protocolVersion` on
+  `initialize` and answers `ping`. A zero-dependency conformance suite
+  (`tooling/tests/test_mcp_conformance.py`, validator in
+  `tooling/jsonschema_mini.py`) verifies the handshake, discovery, and that
+  every tool's live output matches its declared `outputSchema` — so behavior is
+  consistent across clients. This is the primary cross-model bridge.
 - **Skill-based runtimes (Codex, Claude Code):** install the Markdown skills
   with `bin/bootstrap-skills.sh --runtime <codex|claude|generic>`. Skill content
   is model-agnostic; only the install directory differs per runtime
   (`tooling/runtime_targets.py`). Override with `--dest` or `AI_EFF_SKILLS_DEST`.
 - **Raw-API models (Gemini, DeepSeek, …):** the task package produced by
   `build_task_package` (`package.md`) is a self-contained, model-agnostic
-  **context pack** — inject it directly into the model's prompt. A first-class
-  CLI for emitting/piping context packs is on the roadmap.
+  **context pack** — inject it directly into the model's prompt. Emit one with
+  `bin/context-pack.sh --project <p> --requirement "<text>"` (prints to stdout,
+  or `--out FILE`); back it with `tooling/context_pack.py`.
 
 Adding a new runtime is mostly a matter of adding an entry to
 `RUNTIMES` in `tooling/runtime_targets.py` (skills directory + label).

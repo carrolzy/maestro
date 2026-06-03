@@ -79,6 +79,22 @@ an agent can call them directly:
 `search_memory`, `build_task_package`, `register_project`,
 `update_task_run_state`, `writeback_and_sync_memory`, `doctor_local_skills`.
 
+Each tool carries a full `inputSchema` **and** `outputSchema`, the server
+negotiates the MCP `protocolVersion` and answers `ping`, and a conformance suite
+(`tooling/tests/test_mcp_conformance.py`) checks that every tool's output matches
+its declared schema — so any MCP client gets a consistent, discoverable contract.
+
+### Context Pack (any model)
+
+For runtimes without MCP/skills (e.g. raw Gemini/DeepSeek API), emit a
+self-contained context pack and inject it into the prompt:
+
+```bash
+bin/context-pack.sh --project example-wxapp --requirement "购物车确认订单一致性"
+# or write to a file:
+bin/context-pack.sh --project example-wxapp --requirement "..." --out pack.md
+```
+
 ## Directory Map
 
 - `base/` — stable cross-project preferences and rules
