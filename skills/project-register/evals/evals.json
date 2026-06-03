@@ -1,0 +1,23 @@
+{
+  "skill_name": "project-register",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Register a new project called `demo-project` with the summary `Demo project for registration.` and project type `chrome-extension`.",
+      "expected_output": "Creates the canonical project shell and includes the summary and project type hint.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "Register `Bad Project!` with the summary `Invalid slug example.`",
+      "expected_output": "Rejects the malformed slug and does not create files.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Register `example-wxapp` again without `--force`.",
+      "expected_output": "Rejects the already registered project and asks for explicit force if overwrite is intended.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "traceEvents": [
+    {
+      "name": "RunTask",
+      "cat": "devtools.timeline",
+      "ts": 0,
+      "dur": 62000,
+      "args": {
+        "data": {
+          "scriptName": "pages5/marketing/cms-activity-page.js",
+          "stack": "loadProductModulesSequential flushSchedulerQueue patch diff cloneWithData"
+        }
+      }
+    },
+    {
+      "name": "RunTask",
+      "cat": "devtools.timeline",
+      "ts": 70000,
+      "dur": 58000,
+      "args": {
+        "data": {
+          "scriptName": "pages/home/index.js",
+          "stack": "onShow scheduleHomeRefresh"
+        }
+      }
+    },
+    {
+      "name": "RunTask",
+      "cat": "devtools.timeline",
+      "ts": 135000,
+      "dur": 91000,
+      "args": {
+        "data": {
+          "scriptName": "pages5/marketing/cms-activity-page.js",
+          "stack": "Vue.$destroy detached observer disconnect"
+        }
+      }
+    },
+    {
+      "name": "FunctionCall",
+      "cat": "devtools.timeline",
+      "ts": 235000,
+      "dur": 18000,
+      "args": {
+        "data": {
+          "scriptName": "common/httpClient.js",
+          "stack": "pageModuleByGccs request callback mergeBodyWithProducts"
+        }
+      }
+    }
+  ]
+}

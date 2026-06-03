@@ -1,0 +1,65 @@
+# ---------------------------------------------------------------------------
+# Maestro — .gitignore
+# Goal: publish the reusable framework only. Keep all real business/project
+# data LOCAL (it stays on disk and keeps working, it is just never committed).
+# ---------------------------------------------------------------------------
+
+# === Project data (LOCAL ONLY — never publish) ===
+# Concrete projects live under projects/<name>/. Only the bundled
+# `example-wxapp` sample is tracked; every real project stays private.
+/projects/*
+!/projects/example-wxapp/
+!/projects/README.md
+
+# Per-project memory accumulates locally as you use Maestro. Nothing under
+# memory/projects/ is published except the placeholder + its README.
+/memory/projects/*
+!/memory/projects/.gitkeep
+!/memory/projects/README.md
+
+# Runtime artifacts (task packages, run state, perf traces) are local outputs.
+# Keep the directory placeholders, drop the contents.
+/runtime/task-packages/*
+!/runtime/task-packages/.gitkeep
+/runtime/task-runs/*
+!/runtime/task-runs/.gitkeep
+/runtime/perf-cases/*
+!/runtime/perf-cases/.gitkeep
+
+# Personal design journal, assessments, eval logs and dated planning notes are
+# kept LOCAL. The published docs/ carries only ARCHITECTURE.md and ROADMAP.md.
+/docs/assessments/
+/docs/system-specs/
+/docs/system-plans/
+/docs/system-evolution/
+/docs/superpowers/
+
+# Scratch / temp work area
+/.codex-temp/
+
+# === Heavy / generated artifacts ===
+# Bundled scraping MCP carries a large venv + downloads; excluded wholesale.
+/tooling/scrapling-mcp/
+
+# Vertical-specific diagnostics tool (built around a single private adapter);
+# kept local until a generic, business-free engine is extracted.
+/tooling/solo-diagnostics/
+
+# Python environments and caches
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# OS / editor noise
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/

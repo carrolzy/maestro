@@ -1,0 +1,35 @@
+{
+  "project_type": "uniapp-mini-program",
+  "guidance": [
+    {
+      "keywords": ["cart", "confirm-order", "checkout", "totals", "store", "scope", "购物车", "确认订单", "门店", "加购"],
+      "suspected_modules": [
+        {
+          "module_label": "cart-and-confirm-order",
+          "project_files": [
+            "components/cart-container/cart-container.vue",
+            "pages/confirm-order/confirm-order.vue"
+          ],
+          "evidence": ["requirement keyword match"]
+        }
+      ],
+      "risk_flags": [
+        {
+          "name": "confirm-order boundary regression risk",
+          "reason": "cart, store scope, and confirm-order totals are tightly coupled"
+        }
+      ],
+      "recommended_checks": {
+        "verification_focus": ["cart and confirm-order consistency"],
+        "manual_checks": [
+          "verify cart changes are reflected on confirm-order",
+          "verify store-scope totals remain consistent after cart updates"
+        ],
+        "code_checks": [
+          "check shared cart state source of truth",
+          "check pages/confirm-order total recomputation"
+        ]
+      }
+    }
+  ]
+}

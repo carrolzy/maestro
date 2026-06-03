@@ -1,0 +1,176 @@
+# Local Skills
+
+This directory stores the repo-local source versions of the first AI efficiency system skills.
+
+These files are not yet the globally installed production skills.
+They are the system-owned drafts that define the intended long-term workflow boundary for this repository.
+
+## Current Skill Stack
+
+- `project-intake`
+- `memory-read-first`
+- `writeback-and-sync`
+- `verification-before-close`
+- `project-register`
+
+## Why These Four
+
+These four skills map directly onto the core workflow defined in the root `README.md`:
+
+1. build a task package before implementation
+2. read project memory before non-trivial work
+3. verify before claiming completion
+4. write back and sync durable knowledge
+
+Together they convert the current process from “documented expectations” into “reusable orchestration units.”
+
+## Execution Order
+
+For a normal non-trivial project task, use the stack in this order:
+
+1. `project-intake`
+2. `memory-read-first`
+3. implementation work
+4. `verification-before-close`
+5. `writeback-and-sync`
+6. `verification-before-close` again if closeout state must move from `verified` or `pending-closeout` to `closed`
+
+## Role Of Each Skill
+
+### `project-intake`
+
+Purpose:
+
+- turn `project + requirement` into a stable task package
+- enforce task-entry discipline
+- block implementation when packaging is mandatory and missing
+
+Primary backend:
+
+- `tooling/build_task_package.py`
+- `tooling/task_package_builder.py`
+
+### `memory-read-first`
+
+Purpose:
+
+- enforce the pre-work reading order
+- surface the minimum relevant context from project cards, project memory, patterns, and rules
+
+Primary backend:
+
+- `base/memory-execution-flow.md`
+- `projects/*`
+- `memory/*`
+
+### `verification-before-close`
+
+Purpose:
+
+- require explicit verification evidence
+- record lifecycle state
+- distinguish `verified`, `pending-closeout`, and `closed`
+
+Primary backend:
+
+- `tooling/update_task_run_state.py`
+- `project-types/*/verification.md`
+
+### `writeback-and-sync`
+
+Purpose:
+
+- write durable closeout notes into Obsidian
+- sync the result into local project memory
+- keep the project memory mirror current
+
+Primary backend:
+
+- `tooling/writeback_and_sync_memory.py`
+- `tooling/writeback_and_sync_memory.sh`
+
+## Architectural Boundary
+
+These skills should stay thin.
+
+They should:
+
+- orchestrate the workflow
+- enforce sequence
+- call backend scripts
+- summarize outcomes
+
+They should not:
+
+- duplicate Python logic already implemented in `tooling/`
+- become the storage layer for project knowledge
+- absorb volatile project details that belong in `projects/`, `project-types/`, or `memory/`
+
+The intended boundary is:
+
+- `skills/`: orchestration and process enforcement
+- `tooling/`: executable logic
+- `projects/`, `project-types/`, `memory/`: durable context and knowledge
+- `runtime/`: generated task packages and task lifecycle state
+
+## Current Status
+
+Current state of these skill files:
+
+- repo-local draft sources exist
+- they can now be installed into the global Codex skill directory with `bin/install-local-skills.sh`
+- `project-intake` passed round-1 eval and is in limited live trial
+- `memory-read-first` passed round-1 eval and is in limited live trial
+- `verification-before-close` passed round-1 eval and is in limited live trial
+- `writeback-and-sync` passed round-1 eval and is ready for limited live trial after backend alignment
+- `project-register` is installed and in sync as the project-shell registration entry point
+- some backend flows are still partial, especially around end-to-end closeout orchestration
+
+## Installation
+
+Use the repo-owned installer when you want to copy these source skills into a machine-local Codex runtime directory:
+
+```bash
+bin/doctor-local-skills.sh
+bin/bootstrap-codex-local.sh
+bin/install-local-skills.sh --list
+bin/install-local-skills.sh project-intake
+bin/install-local-skills.sh --takeover project-intake
+bin/install-local-skills.sh --all
+```
+
+Default destination:
+
+- `~/.codex/skills`
+
+Behavior:
+
+- installs complete skill directories, not just `SKILL.md`
+- writes a source marker so later reinstalls know the target is repo-managed
+- refuses to overwrite an existing unmanaged skill directory by default
+- `--takeover` allows an explicit one-time replacement of an unmanaged existing directory when you intentionally want to bring it under repo-managed control
+- `bin/doctor-local-skills.sh` reports `missing`, `installed`, `drifted`, or `unmanaged`
+- `bin/bootstrap-codex-local.sh` installs missing repo-managed skills and repairs drifted ones
+- restart Codex after install or reinstall so skills can trigger in new sessions
+
+## Next Recommended Steps
+
+1. Install `writeback-and-sync` into limited live trial to complete the first four-skill stack rollout.
+2. Keep live-trial scope narrow while observing the five-skill stack together.
+3. Add a wider machine-bootstrap wrapper later if skills, plugins, and config need one-shot setup together.
+4. Add drift policy for unmanaged directories only if forced takeover ever becomes necessary.
+
+## File Map
+
+- `skills/project-intake/SKILL.md`
+- `skills/memory-read-first/SKILL.md`
+- `skills/writeback-and-sync/SKILL.md`
+- `skills/verification-before-close/SKILL.md`
+- `skills/project-register/SKILL.md`
+- `docs/system-specs/2026-05-19-local-skill-stack-v1.md`
+- `docs/system-specs/2026-05-20-project-register-design.md`
+- `docs/system-plans/project-intake-eval-record-round-1.md`
+- `docs/system-plans/memory-read-first-eval-record-round-1.md`
+- `docs/system-plans/verification-before-close-eval-record-round-1.md`
+- `docs/system-plans/writeback-and-sync-eval-record-round-1.md`
+- `docs/system-plans/2026-05-20-project-register-implementation-plan.md`

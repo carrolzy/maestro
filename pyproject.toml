@@ -1,0 +1,24 @@
+[project]
+name = "maestro"
+version = "0.1.0"
+description = "Maestro — a model-agnostic agent orchestration framework of reusable AI execution assets (memory, project-type templates, rules, skills, task packages) and an MCP tool layer."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["ai", "agent", "orchestration", "mcp", "memory", "automation"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+# The tooling/ modules are flat (imported by module name). Run them with
+# `PYTHONPATH=tooling`. This file currently provides project metadata and
+# tooling configuration rather than an installable package layout.
+
+[tool.pytest.ini_options]
+pythonpath = ["tooling"]
+testpaths = ["tooling/tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

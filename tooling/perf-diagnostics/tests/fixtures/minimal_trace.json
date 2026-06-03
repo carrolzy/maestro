@@ -1,0 +1,28 @@
+{
+  "traceEvents": [
+    {
+      "name": "RunTask",
+      "cat": "devtools.timeline",
+      "ts": 0,
+      "dur": 12000,
+      "args": {
+        "data": {
+          "scriptName": "pages/home/index.js",
+          "stack": "tapHandler"
+        }
+      }
+    },
+    {
+      "name": "RunTask",
+      "cat": "devtools.timeline",
+      "ts": 20000,
+      "dur": 8000,
+      "args": {
+        "data": {
+          "scriptName": "pages/home/index.js",
+          "stack": "refreshData"
+        }
+      }
+    }
+  ]
+}
