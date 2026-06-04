@@ -35,12 +35,20 @@ tasks.
   each tool's live output matches its declared schema
   (`tooling/tests/test_mcp_conformance.py`, `tooling/jsonschema_mini.py`)
 - ✅ `bin/context-pack.sh` emits a model-agnostic context pack for raw-API models
-- Next: per-provider adapter layer (Phase 2)
 
-### Phase 2 — Model-agnostic adapter layer
-- Thin adapters so the same tools work across model/runtime providers
-  (Claude, others) without business logic leaking into the core
-- Standardize the request/response contracts and structured outputs
+### Phase 2 — Model-agnostic adapter layer (in progress)
+- ✅ Single canonical tool registry (`tooling/tool_registry.py`, `TOOL_SPECS`) is
+  the source of truth consumed by both the MCP server and the adapters; the
+  server gained `invoke()` for unwrapped canonical dispatch
+- ✅ Thin per-provider adapters (`tooling/adapters/`) translate the same six
+  tools into each provider's native function-calling format and parse tool-calls
+  back to a canonical `(name, arguments)` — covering **OpenAI, DeepSeek,
+  Anthropic, Gemini** (Gemini includes an OpenAPI-subset schema sanitizer)
+- ✅ `bin/provider-tools.sh` lists native declarations and dispatches calls;
+  `tooling/tests/test_adapters.py` checks declaration coverage and round-trip
+  dispatch validated against each tool's `outputSchema`
+- No business logic in adapters, no SDK/network deps (pure translation)
+- Next: standardize multi-turn tool-result framing per provider (toward Phase 4)
 
 ### Phase 3 — Pluggable business onboarding
 - A business is fully described by tracked, generic-shaped config:

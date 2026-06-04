@@ -69,14 +69,29 @@ by construction. Integration happens at the edges:
   with `bin/bootstrap-skills.sh --runtime <codex|claude|generic>`. Skill content
   is model-agnostic; only the install directory differs per runtime
   (`tooling/runtime_targets.py`). Override with `--dest` or `AI_EFF_SKILLS_DEST`.
-- **Raw-API models (Gemini, DeepSeek, …):** the task package produced by
+- **Provider tool adapters (OpenAI, DeepSeek, Anthropic, Gemini):** the same six
+  tools are exposed in each provider's native function-calling format via thin
+  adapters in `tooling/adapters/`. A single canonical registry
+  (`tooling/tool_registry.py`, `TOOL_SPECS`) is the source of truth that both the
+  MCP server and the adapters consume, so declarations never drift. Each adapter
+  does two things and nothing else: `tool_declarations()` builds the provider's
+  native tool list, and `parse_tool_call()` turns a provider tool-call back into
+  a canonical `(name, arguments)` pair dispatched through
+  `AiEfficiencyMcpServer.invoke`. The Gemini adapter additionally sanitizes the
+  JSON Schema into Gemini's OpenAPI subset (drops `additionalProperties`, rewrites
+  nullable unions, uppercases types). Emit or dispatch via
+  `bin/provider-tools.sh --provider <p> --list` / `--call <tool> --arguments '<json>'`.
+  Adapters make no network calls and import no SDKs — they only shape requests and
+  parse responses, preserving the zero-runtime-dependency guarantee.
+- **Raw-API models without function calling:** the task package produced by
   `build_task_package` (`package.md`) is a self-contained, model-agnostic
   **context pack** — inject it directly into the model's prompt. Emit one with
   `bin/context-pack.sh --project <p> --requirement "<text>"` (prints to stdout,
   or `--out FILE`); back it with `tooling/context_pack.py`.
 
-Adding a new runtime is mostly a matter of adding an entry to
-`RUNTIMES` in `tooling/runtime_targets.py` (skills directory + label).
+Adding a new runtime is mostly a matter of adding an entry to `RUNTIMES` in
+`tooling/runtime_targets.py` (skills directory + label). Adding a new tool
+provider is one adapter file plus an entry in `tooling/adapters/__init__.py`.
 
 ## Extending Maestro
 
