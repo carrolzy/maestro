@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from checkpoint import Checkpoint, build_resume_context, save_checkpoint
 from local_skills_doctor import assess_local_skills
 from project_types import list_project_types
 from register_project import register_project
@@ -56,6 +57,8 @@ class AiEfficiencyMcpServer:
             "list_project_types": self._call_list_project_types,
             "run_workflow": self._call_run_workflow,
             "get_workflow_status": self._call_get_workflow_status,
+            "resume_task": self._call_resume_task,
+            "handoff_task": self._call_handoff_task,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -219,6 +222,81 @@ class AiEfficiencyMcpServer:
             }
         import json
         return json.loads(status_path.read_text(encoding="utf-8"))
+
+    def _call_resume_task(self, arguments: JsonDict) -> JsonDict:
+        runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
+        project = _required_string(arguments, "project")
+        task_slug = _required_string(arguments, "task_slug")
+        agent = _optional_string(arguments, "agent")
+
+        ctx = build_resume_context(
+            runtime_root=runtime_root,
+            project=project,
+            task_slug=task_slug,
+            system_root=self.system_root,
+        )
+
+        # Record that this agent is now resuming the task
+        if agent and ctx["can_resume"]:
+            update_task_run_state(
+                runtime_root=runtime_root,
+                project=project,
+                task_slug=task_slug,
+                state="in_progress",
+                agent=agent,
+            )
+            save_checkpoint(
+                runtime_root=runtime_root,
+                project=project,
+                task_slug=task_slug,
+                checkpoint=Checkpoint(
+                    agent=agent,
+                    step="resume",
+                    state="completed",
+                    summary=f"Resumed task from {ctx['last_agent']} (last state: {ctx['last_state']})",
+                    next_hint=ctx["next_step_hint"],
+                ),
+            )
+
+        return ctx
+
+    def _call_handoff_task(self, arguments: JsonDict) -> JsonDict:
+        runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
+        project = _required_string(arguments, "project")
+        task_slug = _required_string(arguments, "task_slug")
+        from_agent = _required_string(arguments, "from_agent")
+        to_agent = _required_string(arguments, "to_agent")
+        note = _optional_string(arguments, "note") or ""
+
+        path = save_checkpoint(
+            runtime_root=runtime_root,
+            project=project,
+            task_slug=task_slug,
+            checkpoint=Checkpoint(
+                agent=from_agent,
+                step="handoff",
+                state="completed",
+                summary=f"Handed off to {to_agent}: {note}" if note else f"Handed off to {to_agent}",
+                next_hint=f"Task handed to {to_agent}. Use resume_task to pick up.",
+            ),
+        )
+
+        update_task_run_state(
+            runtime_root=runtime_root,
+            project=project,
+            task_slug=task_slug,
+            state="handed_off",
+            agent=from_agent,
+        )
+
+        return {
+            "project": project,
+            "task_slug": task_slug,
+            "from_agent": from_agent,
+            "to_agent": to_agent,
+            "state": "handed_off",
+            "checkpoint_path": str(path),
+        }
 
 
 def _tool_definitions() -> list[JsonDict]:

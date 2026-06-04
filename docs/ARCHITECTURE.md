@@ -162,6 +162,29 @@ port 8420, opens browser automatically):
 The dashboard is the visual answer to "命令会记不住" — everything is
 clickable, browsable, and live-validated.
 
+## Agent-to-Agent Handoff (A2A)
+
+When one agent fails mid-task (network issue, model unavailable, crash),
+another agent can resume precisely where the first left off:
+
+- **Checkpoints** (`tooling/checkpoint.py`) — every agent records a structured
+  checkpoint at each step: what it did, what it produced, what files changed,
+  and what should happen next. Stored as append-only JSON under
+  `runtime/task-runs/<project>/<slug>/checkpoints/`.
+- **Agent identity** — `update_task_run_state` records which agent made each
+  state transition. Checkpoints carry the agent name. The system tracks who
+  did what, when.
+- **Resume** (`resume_task` MCP tool) — given a project + task_slug, returns
+  a complete context snapshot: agent history, completed steps with summaries,
+  files modified, next-step hint, and a self-contained `resume_context_pack`
+  (markdown) injectable directly into any agent's prompt.
+- **Handoff** (`handoff_task` MCP tool) — explicit agent-to-agent handoff
+  with a checkpoint and state transition to `handed_off`.
+
+This prevents dead loops (agent B redoing what A already did), memory
+corruption (two agents writing conflicting notes), and semantic drift
+(agent B misunderstanding the intent).
+
 ## Extending Maestro
 
 - **New project type:** add a folder under `project-types/`.

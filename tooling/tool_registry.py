@@ -284,6 +284,61 @@ TOOL_SPECS: list[JsonDict] = [
             "additionalProperties": False,
         },
     ),
+    _tool_schema(
+        "resume_task",
+        "Resume Task",
+        "Build a complete resume context for an agent to pick up a task where another agent left off. Returns structured checkpoint history, files modified, next-step hint, and a self-contained markdown resume pack for prompt injection.",
+        {
+            "project": {"type": "string", "description": "Project slug."},
+            "task_slug": {"type": "string", "description": "Task-run slug to resume."},
+            "agent": {"type": "string", "description": "Agent identity of the resuming agent (e.g. 'claude', 'codex')."},
+        },
+        required=["project", "task_slug"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string"},
+                "task_slug": {"type": "string"},
+                "can_resume": {"type": "boolean"},
+                "last_agent": {"type": "string"},
+                "last_state": {"type": "string"},
+                "completed_steps": {"type": "array"},
+                "files_modified": {"type": "array", "items": {"type": "string"}},
+                "next_step_hint": {"type": "string"},
+                "recent_checkpoints": {"type": "array"},
+                "agent_history": {"type": "array"},
+                "resume_context_pack": {"type": "string", "description": "Self-contained markdown for prompt injection."},
+            },
+            "required": ["project", "task_slug", "can_resume", "resume_context_pack"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "handoff_task",
+        "Handoff Task",
+        "Explicitly hand off a task from one agent to another. Saves a handoff checkpoint and marks the task as handed_off.",
+        {
+            "project": {"type": "string", "description": "Project slug."},
+            "task_slug": {"type": "string", "description": "Task-run slug."},
+            "from_agent": {"type": "string", "description": "Agent handing off (e.g. 'codex')."},
+            "to_agent": {"type": "string", "description": "Agent taking over (e.g. 'claude')."},
+            "note": {"type": "string", "description": "Handoff note — what to do next, why handing off."},
+        },
+        required=["project", "task_slug", "from_agent", "to_agent"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string"},
+                "task_slug": {"type": "string"},
+                "from_agent": {"type": "string"},
+                "to_agent": {"type": "string"},
+                "state": {"type": "string"},
+                "checkpoint_path": {"type": "string"},
+            },
+            "required": ["project", "task_slug", "from_agent", "to_agent", "state"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 

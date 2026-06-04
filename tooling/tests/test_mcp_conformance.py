@@ -20,6 +20,8 @@ EXPECTED_TOOLS = [
     "list_project_types",
     "run_workflow",
     "get_workflow_status",
+    "resume_task",
+    "handoff_task",
 ]
 
 NOTE_BODY = (
@@ -160,6 +162,8 @@ class McpToolContractConformanceTests(unittest.TestCase):
                     }
                 },
                 "get_workflow_status": {"project": "alpha", "task_slug": "conformance-test"},
+                "resume_task": {"project": "alpha", "task_slug": "conformance-test", "agent": "test-runner"},
+                "handoff_task": {"project": "alpha", "task_slug": "conformance-test", "from_agent": "codex", "to_agent": "claude", "note": "Network failure — please continue."},
             }
 
             for name in EXPECTED_TOOLS:

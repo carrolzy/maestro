@@ -19,6 +19,8 @@ EXPECTED_TOOLS = [
     "list_project_types",
     "run_workflow",
     "get_workflow_status",
+    "resume_task",
+    "handoff_task",
 ]
 
 

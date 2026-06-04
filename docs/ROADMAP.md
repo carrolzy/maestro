@@ -100,6 +100,26 @@ tasks.
   project, workflow, and memory search is clickable, browsable, and
   live-validated.
 
+### Phase 6 — Agent-to-Agent Handoff (A2A) ✅
+- ✅ `tooling/checkpoint.py`: structured `Checkpoint` dataclass —
+  agent/step/state/summary/output/files_modified/next_hint/timestamp.
+  `save_checkpoint()`, `load_latest_checkpoint()`, `list_checkpoints()`,
+  `build_resume_context()` with self-contained markdown resume pack.
+- ✅ `update_task_run_state` enhanced with optional `agent` parameter.
+  Every state transition records which agent made it. Backward-compatible.
+- ✅ 2 new MCP tools: `resume_task` (build full resume context from
+  checkpoints) and `handoff_task` (explicit agent-to-agent handoff with
+  checkpoint + state transition to `handed_off`)
+- ✅ `resume_context_pack` is a self-contained markdown string —
+  injectable directly into any agent's prompt with no tool calls needed.
+  Contains: original requirement, agent history, completed steps with
+  summaries, files modified, next-step hint, latest output, and explicit
+  instructions for the resuming agent.
+- ✅ 162 tests all green; preflight clean
+- Codex crashes → Claude opens → `resume_task("my-app", "cart-fix")` →
+  gets full context → continues exactly where Codex left off.
+  No dead loops, no memory corruption, no semantic drift.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.
