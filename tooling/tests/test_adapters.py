@@ -15,6 +15,8 @@ EXPECTED_TOOLS = [
     "update_task_run_state",
     "writeback_and_sync_memory",
     "doctor_local_skills",
+    "validate_project",
+    "list_project_types",
 ]
 
 

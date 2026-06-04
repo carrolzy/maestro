@@ -185,6 +185,51 @@ TOOL_SPECS: list[JsonDict] = [
             "additionalProperties": False,
         },
     ),
+    _tool_schema(
+        "validate_project",
+        "Validate Project",
+        "Check a registered project's readiness: canonical files, playbook, business card, project type.",
+        {
+            "project": {"type": "string", "description": "Project slug to validate."},
+        },
+        required=["project"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string"},
+                "valid": {"type": "boolean"},
+                "checks": {"type": "object"},
+                "issues": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["project", "valid", "checks", "issues"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "list_project_types",
+        "List Project Types",
+        "List available project-type templates with descriptions, rules, and pitfalls.",
+        {},
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "description": {"type": "string"},
+                            "rules": {"type": "array", "items": {"type": "string"}},
+                            "pitfalls": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                },
+            },
+            "required": ["project_types"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 

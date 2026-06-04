@@ -50,12 +50,23 @@ tasks.
 - No business logic in adapters, no SDK/network deps (pure translation)
 - Next: standardize multi-turn tool-result framing per provider (toward Phase 4)
 
-### Phase 3 — Pluggable business onboarding
-- A business is fully described by tracked, generic-shaped config:
-  business card + `playbook.json` + project-type selection
-- No business specifics in core code (the `playbook.json` mechanism is the first
-  step toward this)
-- Self-serve onboarding flow + validation
+### Phase 3 — Pluggable business onboarding ✅
+- ✅ `tooling/playbook_schema.py`: formal JSON Schema for `playbook.json` with
+  `validate_playbook()` / `load_and_validate_playbook()` using `jsonschema_mini`
+- ✅ `tooling/project_types.py`: scans `project-types/` directories, returns
+  typed metadata (description, rules, pitfalls); CLI `--list` and MCP tool
+- ✅ `tooling/business_card.py`: structured `business-card.json` with schema
+  validation, starter generation, and `card_to_markdown()` renderer
+- ✅ `tooling/validate_project.py`: checks canonical files, playbook, business
+  card, and project-type membership — returns a machine-readable report
+- ✅ `tooling/onboard_project.py`: guided one-command onboarding — registers,
+  generates playbook + business card, validates, prints readiness report
+- ✅ 2 new MCP tools (`validate_project`, `list_project_types`) with full
+  inputSchema/outputSchema; conformance-tested
+- A business is fully described by tracked, generic-shaped config: business
+  card + `playbook.json` + project-type selection. No business specifics in
+  core code.
+- Next: orchestration runtime (Phase 4)
 
 ### Phase 4 — Orchestration runtime
 - Deterministic multi-step orchestration (plan → execute → verify → write back)

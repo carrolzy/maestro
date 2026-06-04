@@ -93,10 +93,36 @@ Adding a new runtime is mostly a matter of adding an entry to `RUNTIMES` in
 `tooling/runtime_targets.py` (skills directory + label). Adding a new tool
 provider is one adapter file plus an entry in `tooling/adapters/__init__.py`.
 
+## Business Onboarding
+
+Maestro onboards a project through a machine-checkable pipeline so the system
+can validate readiness before work starts:
+
+- **`playbook.json`** (`tooling/playbook_schema.py`) — a validated JSON Schema
+  contract for project-specific guidance (keywords → suspected modules, risk
+  flags, recommended checks). The schema is enforced by `validate_playbook()`;
+  malformed guidance is caught at validation time, not at task-build time.
+- **Structured business card** (`tooling/business_card.py`) — a machine-readable
+  `business-card.json` that sits alongside the human-friendly
+  `business-context.md`. Validated against `BUSINESS_CARD_SCHEMA`, rendered to
+  markdown via `card_to_markdown()`.
+- **Project-type discovery** (`tooling/project_types.py`) — scans
+  `project-types/` directories and returns typed metadata (description, rules,
+  pitfalls), listable via CLI and MCP tool.
+- **Guided onboarding** (`tooling/onboard_project.py`) — one command that
+  registers the project shell, generates a starter playbook and business card,
+  and prints a readiness report. Exposed as the `register_project` MCP tool
+  plus the new `validate_project` and `list_project_types` MCP tools.
+- **Validation** (`tooling/validate_project.py`) — checks canonical files,
+  playbook validity, business card validity, and project-type membership.
+
+After onboarding (✅ all checks), the project is ready for memory-read-first
+task work through `build_task_package`.
+
 ## Extending Maestro
 
 - **New project type:** add a folder under `project-types/`.
-- **New project:** `tooling/register_project.py`, then enrich the cards.
+- **New project:** `tooling/onboard_project.py`, then enrich the cards.
 - **New skill:** add a thin skill under `skills/`, back it with tooling.
 - **New backend capability:** add a module under `tooling/` with tests.
 - **New runtime:** extend `RUNTIMES` in `tooling/runtime_targets.py`.

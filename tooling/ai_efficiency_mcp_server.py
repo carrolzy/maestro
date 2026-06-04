@@ -9,11 +9,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 from local_skills_doctor import assess_local_skills
+from project_types import list_project_types
 from register_project import register_project
 from search_memory import search_memory
 from task_package_builder import build_task_package
 from tool_registry import TOOL_SPECS
 from update_task_run_state import update_task_run_state
+from validate_project import validate_project
 from writeback_and_sync_memory import writeback_and_sync_memory
 
 
@@ -49,6 +51,8 @@ class AiEfficiencyMcpServer:
             "update_task_run_state": self._call_update_task_run_state,
             "writeback_and_sync_memory": self._call_writeback_and_sync_memory,
             "doctor_local_skills": self._call_doctor_local_skills,
+            "validate_project": self._call_validate_project,
+            "list_project_types": self._call_list_project_types,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -182,6 +186,15 @@ class AiEfficiencyMcpServer:
                 for name, status in statuses.items()
             },
         }
+
+    def _call_validate_project(self, arguments: JsonDict) -> JsonDict:
+        return validate_project(
+            system_root=self.system_root,
+            project=_required_string(arguments, "project"),
+        )
+
+    def _call_list_project_types(self, arguments: JsonDict) -> JsonDict:  # noqa: ARG002
+        return {"project_types": list_project_types(self.system_root)}
 
 
 def _tool_definitions() -> list[JsonDict]:

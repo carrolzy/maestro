@@ -16,6 +16,8 @@ EXPECTED_TOOLS = [
     "update_task_run_state",
     "writeback_and_sync_memory",
     "doctor_local_skills",
+    "validate_project",
+    "list_project_types",
 ]
 
 NOTE_BODY = (
@@ -143,6 +145,8 @@ class McpToolContractConformanceTests(unittest.TestCase):
                     "memory_root": str(root / "memory-root"),
                 },
                 "doctor_local_skills": {"dest_root": str(root / "skills-dest")},
+                "validate_project": {"project": "alpha"},
+                "list_project_types": {},
             }
 
             for name in EXPECTED_TOOLS:

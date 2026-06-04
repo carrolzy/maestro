@@ -53,23 +53,15 @@ class AiEfficiencyMcpServerTests(unittest.TestCase):
             self.assertIn("tools", response["result"]["capabilities"])
 
     def test_tools_list_exposes_core_system_tools(self) -> None:
+        from tool_registry import tool_names
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             server = AiEfficiencyMcpServer(system_root=Path(tmp_dir))
 
             response = server.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
 
-            tool_names = [tool["name"] for tool in response["result"]["tools"]]
-            self.assertEqual(
-                tool_names,
-                [
-                    "search_memory",
-                    "build_task_package",
-                    "register_project",
-                    "update_task_run_state",
-                    "writeback_and_sync_memory",
-                    "doctor_local_skills",
-                ],
-            )
+            names = [tool["name"] for tool in response["result"]["tools"]]
+            self.assertEqual(names, tool_names())
 
     def test_tools_call_search_memory_returns_structured_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
