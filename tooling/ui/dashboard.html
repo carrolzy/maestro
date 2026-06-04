@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,19 +18,21 @@
   --radius: 8px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
 a { color:var(--accent); text-decoration:none; }
 button, .btn { background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:var(--radius); cursor:pointer; font-size:13px; }
 button:hover, .btn:hover { opacity:.85; }
 button.danger { background:var(--red); }
+button.ghost { background:var(--surface); color:var(--text); border:1px solid var(--border); }
 input, textarea, select { background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; font-size:13px; font-family:inherit; width:100%; }
 textarea { resize:vertical; min-height:80px; }
 label { font-size:12px; color:var(--dim); display:block; margin-bottom:4px; margin-top:12px; }
-/* tabs */
+/* nav */
 nav { display:flex; flex-direction:column; width:200px; border-right:1px solid var(--border); padding:16px 0; flex-shrink:0; }
 nav .logo { padding:0 16px 16px; font-weight:700; font-size:16px; color:var(--accent); }
 nav a { display:block; padding:10px 16px; color:var(--dim); font-size:13px; transition:all .15s; border-left:3px solid transparent; }
 nav a:hover, nav a.active { color:var(--text); background:var(--surface); border-left-color:var(--accent); }
+nav .lang-switch { margin:auto 16px 8px; }
 /* main */
 main { flex:1; overflow-y:auto; padding:24px 32px; }
 .panel { display:flex; gap:24px; height:100%; }
@@ -58,15 +60,13 @@ pre.json { background:var(--bg); border:1px solid var(--border); border-radius:v
 /* toolbar */
 .toolbar { display:flex; gap:8px; margin-bottom:16px; align-items:center; }
 .spacer { flex:1; }
-/* step cards in workflow results */
+/* step cards */
 .step-card { border-left:3px solid var(--border); padding:8px 12px; margin-bottom:8px; background:var(--surface); border-radius:0 var(--radius) var(--radius) 0; }
 .step-card.completed { border-left-color:var(--green); }
 .step-card.failed { border-left-color:var(--red); }
 .step-card .step-header { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
 .step-card .step-body { font-size:12px; color:var(--dim); margin-top:4px; }
-/* form row */
 .form-row { display:flex; gap:12px; }
-/* state icon */
 .state-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
 .state-dot.ok { background:var(--green); }
 .state-dot.warn { background:var(--yellow); }
@@ -77,15 +77,111 @@ pre.json { background:var(--bg); border:1px solid var(--border); border-radius:v
 
 <nav>
   <div class="logo">⚡ Maestro</div>
-  <a href="#" data-tab="projects" class="active">📁 Projects</a>
-  <a href="#" data-tab="tools">🔧 Tools</a>
-  <a href="#" data-tab="workflows">⚙️ Workflows</a>
-  <a href="#" data-tab="memory">🧠 Memory</a>
+  <a href="#" data-tab="projects" class="active" data-i18n="nav.projects">📁 Projects</a>
+  <a href="#" data-tab="tools" data-i18n="nav.tools">🔧 Tools</a>
+  <a href="#" data-tab="workflows" data-i18n="nav.workflows">⚙️ Workflows</a>
+  <a href="#" data-tab="memory" data-i18n="nav.memory">🧠 Memory</a>
+  <div class="lang-switch">
+    <button class="ghost" onclick="toggleLang()" style="width:100%;font-size:12px" id="lang-btn">🌐 中文</button>
+  </div>
 </nav>
 
 <main id="main"></main>
 
 <script>
+// ═══════════════════════════════════════════════════════════════════
+// i18n system
+// ═══════════════════════════════════════════════════════════════════
+
+const T = {
+  'nav.projects':        { zh:'📁 项目',     en:'📁 Projects' },
+  'nav.tools':           { zh:'🔧 工具',     en:'🔧 Tools' },
+  'nav.workflows':       { zh:'⚙️ 工作流',   en:'⚙️ Workflows' },
+  'nav.memory':          { zh:'🧠 记忆',     en:'🧠 Memory' },
+  'loading':             { zh:'加载中...',    en:'Loading...' },
+  'error':               { zh:'错误',         en:'Error' },
+  'noProjects':          { zh:'还没有项目，点击「+ 新建」接入一个。', en:'No projects found. Click + New to onboard one.' },
+  'selectProject':       { zh:'选择一个项目',  en:'Select a project' },
+  'projects':            { zh:'项目',         en:'Projects' },
+  'newProject':          { zh:'+ 新建',       en:'+ New' },
+  'newProjectTitle':     { zh:'接入新项目',    en:'New Project' },
+  'slugLabel':           { zh:'项目标识 (kebab-case)', en:'Project slug (kebab-case)' },
+  'summaryLabel':        { zh:'一句话描述',    en:'One-sentence summary' },
+  'summaryPlaceholder':  { zh:'描述这个项目...', en:'Describe the project...' },
+  'typeLabel':           { zh:'项目类型',      en:'Project type' },
+  'typeNone':            { zh:'(不选)',        en:'(none)' },
+  'cancel':              { zh:'取消',         en:'Cancel' },
+  'create':              { zh:'创建',         en:'Create' },
+  'creating':            { zh:'创建中...',     en:'Creating...' },
+  'valid':               { zh:'正常',         en:'valid' },
+  'issues':              { zh:'有问题',       en:'issues' },
+  'files':               { zh:'文件',         en:'Files' },
+  'playbook':            { zh:'剧本',         en:'Playbook' },
+  'businessCard':        { zh:'商务名片',      en:'Business Card' },
+  'tools':               { zh:'工具',         en:'Tools' },
+  'selectTool':          { zh:'选择一个工具',  en:'Select a tool' },
+  'args':                { zh:'参数',         en:'Arguments' },
+  'invoke':              { zh:'调用',         en:'Invoke' },
+  'running':             { zh:'运行中...',     en:'Running...' },
+  'result':              { zh:'结果',         en:'Result' },
+  'outputSchema':        { zh:'输出模式',      en:'outputSchema' },
+  'workflows':           { zh:'工作流',       en:'Workflows' },
+  'presets':             { zh:'预设模板',      en:'Presets' },
+  'wfDefLabel':          { zh:'工作流定义 (JSON)', en:'Workflow definition (JSON)' },
+  'runWorkflow':         { zh:'运行工作流',    en:'Run Workflow' },
+  'runningWf':           { zh:'运行中...',     en:'Running workflow...' },
+  'completed':           { zh:'已完成',       en:'completed' },
+  'failed':              { zh:'已失败',       en:'failed' },
+  'attempt':             { zh:'次尝试',       en:'attempt' },
+  'attempts':            { zh:'次尝试',       en:'attempts' },
+  'memory':              { zh:'记忆',         en:'Memory' },
+  'search':              { zh:'搜索',         en:'Search' },
+  'searchPlaceholder':   { zh:'搜索关键词...', en:'search terms...' },
+  'allProjects':         { zh:'所有项目',      en:'All projects' },
+  'patterns':            { zh:'模式',         en:'Patterns' },
+  'rules':               { zh:'规则',         en:'Rules' },
+  'none':                { zh:'无',           en:'None' },
+  'searchMemoryHint':    { zh:'搜索记忆以查看结果', en:'Search memory to see results' },
+  'searching':           { zh:'搜索中...',     en:'Searching...' },
+  'resultsFor':          { zh:'搜索结果：',    en:'Results for ' },
+  'projectCards':        { zh:'项目卡片',      en:'Project Cards' },
+  'recentCases':         { zh:'最近案例',      en:'Recent Cases' },
+  'matchedPatterns':     { zh:'匹配的模式',    en:'Matched Patterns' },
+  'matchedRules':        { zh:'匹配的规则',    en:'Matched Rules' },
+  'noResults':           { zh:'没有找到结果。', en:'No results.' },
+  'wfState':             { zh:'状态',         en:'State' },
+};
+
+let LANG = localStorage.getItem('maestro-lang') || 'zh';
+
+function t(key) {
+  return (T[key] && T[key][LANG]) ? T[key][LANG] : key;
+}
+
+function toggleLang() {
+  LANG = LANG === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('maestro-lang', LANG);
+  applyI18n();
+}
+
+function applyI18n() {
+  // Update nav items
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  // Update lang button
+  const btn = document.getElementById('lang-btn');
+  if (btn) btn.textContent = LANG === 'zh' ? '🌐 English' : '🌐 中文';
+  // Update document lang
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+  // Re-render current tab
+  loadTab(currentTab);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// API helpers
+// ═══════════════════════════════════════════════════════════════════
+
 const API = '';
 
 async function get(url) {
@@ -100,7 +196,10 @@ async function post(url, body) {
   return j;
 }
 
-// navigation
+// ═══════════════════════════════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════════════════════════════
+
 let currentTab = 'projects';
 document.querySelectorAll('nav a').forEach(a => {
   a.addEventListener('click', e => {
@@ -114,18 +213,20 @@ document.querySelectorAll('nav a').forEach(a => {
 
 async function loadTab(tab) {
   const m = document.getElementById('main');
-  m.innerHTML = '<div style="padding:40px;color:var(--dim)">Loading...</div>';
+  m.innerHTML = `<div style="padding:40px;color:var(--dim)">${t('loading')}</div>`;
   try {
     if (tab === 'projects') await renderProjects(m);
     else if (tab === 'tools') await renderTools(m);
     else if (tab === 'workflows') renderWorkflows(m);
     else if (tab === 'memory') await renderMemory(m);
   } catch(e) {
-    m.innerHTML = `<div style="padding:40px;color:var(--red)">Error: ${e.message}</div>`;
+    m.innerHTML = `<div style="padding:40px;color:var(--red)">${t('error')}: ${e.message}</div>`;
   }
 }
 
-// ── Projects ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Projects tab
+// ═══════════════════════════════════════════════════════════════════
 
 let selectedProject = null;
 
@@ -133,15 +234,15 @@ async function renderProjects(m) {
   const data = await get('/api/projects');
   m.innerHTML = `<div class="panel">
     <div class="col-left">
-      <div class="toolbar"><h2>Projects</h2><span class="spacer"></span><button onclick="showOnboardModal()">+ New</button></div>
+      <div class="toolbar"><h2>${t('projects')}</h2><span class="spacer"></span><button onclick="showOnboardModal()">${t('newProject')}</button></div>
       <div id="project-list">${data.projects.map(p => `
         <div class="card" data-slug="${p.slug}" onclick="selectProject('${p.slug}')">
           <div class="title">${p.slug}</div>
-          <div class="sub"><span class="state-dot ${p.valid?'ok':'warn'}"></span>${p.valid?'valid':'issues'}</div>
+          <div class="sub"><span class="state-dot ${p.valid?'ok':'warn'}"></span>${p.valid?t('valid'):t('issues')}</div>
         </div>
-      `).join('') || '<div class="sub" style="padding:16px">No projects found. Click + New to onboard one.</div>'}</div>
+      `).join('') || `<div class="sub" style="padding:16px">${t('noProjects')}</div>`}</div>
     </div>
-    <div class="col-right" id="project-detail"><div style="color:var(--dim);padding:40px">Select a project</div></div>
+    <div class="col-right" id="project-detail"><div style="color:var(--dim);padding:40px">${t('selectProject')}</div></div>
   </div>`;
   if (selectedProject) selectProject(selectedProject);
 }
@@ -154,13 +255,14 @@ async function selectProject(slug) {
   try {
     const d = await get(`/api/projects/${slug}`);
     const v = d.validation || {};
+    const badgeText = (s) => s==='ok'?t('valid'):s.startsWith('missing')?'⚠':t('issues');
     detail.innerHTML = `<h2>${slug}</h2>
-      <div style="margin-bottom:16px">${Object.entries(v.checks||{}).map(([k,s])=>`<span class="badge ${s==='ok'?'ok':s.startsWith('missing')?'warn':'err'}">${k}: ${s}</span> `).join('')}</div>
+      <div style="margin-bottom:16px">${Object.entries(v.checks||{}).map(([k,s])=>`<span class="badge ${s==='ok'?'ok':s.startsWith('missing')?'warn':'err'}">${k}: ${badgeText(s)}</span> `).join('')}</div>
       ${v.issues?.length ? `<div style="margin-bottom:12px;font-size:13px;color:var(--yellow)">${v.issues.map(i=>'⚠ '+i).join('<br>')}</div>` : ''}
-      <h3>Files</h3>
+      <h3>${t('files')}</h3>
       ${(d.files||[]).map(f => `<div style="margin-bottom:12px"><strong style="font-size:12px;color:var(--accent)">${f.name}</strong><pre class="json">${esc(f.preview)}</pre></div>`).join('')}
-      ${d.playbook ? `<h3>Playbook</h3><pre class="json">${esc(JSON.stringify(d.playbook,null,2))}</pre>` : ''}
-      ${d['business-card'] ? `<h3>Business Card</h3><pre class="json">${esc(JSON.stringify(d['business-card'],null,2))}</pre>` : ''}
+      ${d.playbook ? `<h3>${t('playbook')}</h3><pre class="json">${esc(JSON.stringify(d.playbook,null,2))}</pre>` : ''}
+      ${d['business-card'] ? `<h3>${t('businessCard')}</h3><pre class="json">${esc(JSON.stringify(d['business-card'],null,2))}</pre>` : ''}
     `;
   } catch(e) {
     detail.innerHTML = `<div style="color:var(--red)">${e.message}</div>`;
@@ -171,25 +273,24 @@ function showOnboardModal() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `<div class="modal">
-    <h2>New Project</h2>
-    <label>Project slug (kebab-case)</label><input id="onb-slug" placeholder="my-app">
-    <label>One-sentence summary</label><input id="onb-summary" placeholder="Describe the project...">
-    <label>Project type</label><select id="onb-type"><option value="">(none)</option></select>
+    <h2>${t('newProjectTitle')}</h2>
+    <label>${t('slugLabel')}</label><input id="onb-slug" placeholder="my-app">
+    <label>${t('summaryLabel')}</label><input id="onb-summary" placeholder="${t('summaryPlaceholder')}">
+    <label>${t('typeLabel')}</label><select id="onb-type"><option value="">${t('typeNone')}</option></select>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-      <button class="danger" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-      <button id="onb-submit">Create</button>
+      <button class="danger" onclick="this.closest('.modal-overlay').remove()">${t('cancel')}</button>
+      <button id="onb-submit">${t('create')}</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target===overlay) overlay.remove(); });
-  // load types
   get('/api/project-types').then(d => {
     const sel = document.getElementById('onb-type');
     (d.project_types||[]).forEach(t => { const o=document.createElement('option'); o.value=t.name; o.textContent=t.name; sel.appendChild(o); });
   }).catch(()=>{});
   document.getElementById('onb-submit').addEventListener('click', async () => {
     const btn = document.getElementById('onb-submit');
-    btn.textContent = 'Creating...'; btn.disabled = true;
+    btn.textContent = t('creating'); btn.disabled = true;
     try {
       await post('/api/projects', {
         project: document.getElementById('onb-slug').value,
@@ -200,13 +301,15 @@ function showOnboardModal() {
       selectedProject = document.getElementById('onb-slug').value;
       await loadTab('projects');
     } catch(e) {
-      alert('Error: ' + e.message);
-      btn.textContent = 'Create'; btn.disabled = false;
+      alert(t('error') + ': ' + e.message);
+      btn.textContent = t('create'); btn.disabled = false;
     }
   });
 }
 
-// ── Tools ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Tools tab
+// ═══════════════════════════════════════════════════════════════════
 
 let selectedTool = null;
 
@@ -214,15 +317,15 @@ async function renderTools(m) {
   const data = await get('/api/tools');
   m.innerHTML = `<div class="panel">
     <div class="col-left">
-      <h2>Tools</h2>
-      <div id="tool-list">${(data.tools||[]).map(t => `
-        <div class="card" data-tool="${t.name}" onclick="selectTool('${t.name}')">
-          <div class="title">${t.name}</div>
-          <div class="sub">${t.description.slice(0,80)}...</div>
+      <h2>${t('tools')}</h2>
+      <div id="tool-list">${(data.tools||[]).map(tool => `
+        <div class="card" data-tool="${tool.name}" onclick="selectTool('${tool.name}')">
+          <div class="title">${tool.name}</div>
+          <div class="sub">${tool.description.slice(0,80)}...</div>
         </div>
       `).join('')}</div>
     </div>
-    <div class="col-right" id="tool-detail"><div style="color:var(--dim);padding:40px">Select a tool</div></div>
+    <div class="col-right" id="tool-detail"><div style="color:var(--dim);padding:40px">${t('selectTool')}</div></div>
   </div>`;
   if (selectedTool) selectTool(selectedTool);
 }
@@ -230,23 +333,24 @@ async function renderTools(m) {
 function selectTool(name) {
   selectedTool = name;
   get('/api/tools').then(data => {
-    const t = (data.tools||[]).find(x=>x.name===name);
-    if (!t) return;
+    const tool = (data.tools||[]).find(x=>x.name===name);
+    if (!tool) return;
     document.querySelectorAll('#tool-list .card').forEach(c => c.classList.remove('active'));
     document.querySelector(`#tool-list .card[data-tool="${name}"]`)?.classList.add('active');
     const detail = document.getElementById('tool-detail');
-    const fields = Object.entries(t.inputSchema?.properties||{});
-    detail.innerHTML = `<h2>${t.name}</h2><p style="color:var(--dim);margin-bottom:16px">${t.description}</p>
-      <h3>Arguments</h3>
+    const fields = Object.entries(tool.inputSchema?.properties||{});
+    const required = tool.inputSchema?.required || [];
+    detail.innerHTML = `<h2>${tool.name}</h2><p style="color:var(--dim);margin-bottom:16px">${tool.description}</p>
+      <h3>${t('args')}</h3>
       <div id="tool-form">${fields.map(([k,s]) => `
-        <label>${k} ${t.inputSchema.required?.includes(k)?'*':''} — <span style="font-weight:400;color:var(--dim)">${s.description||s.type}</span></label>
-        ${s.type==='boolean' ? `<select id="arg-${k}"><option value="">(default)</option><option value="true">true</option><option value="false">false</option></select>` :
+        <label>${k} ${required.includes(k)?'*':''} — <span style="font-weight:400;color:var(--dim)">${s.description||s.type}</span></label>
+        ${s.type==='boolean' ? `<select id="arg-${k}"><option value="">(${t('typeNone')})</option><option value="true">true</option><option value="false">false</option></select>` :
           s.type==='integer'||s.type==='number' ? `<input id="arg-${k}" type="number" placeholder="${s.description||''}">` :
           `<input id="arg-${k}" placeholder="${s.description||''}">`}
       `).join('')}</div>
-      <div style="margin-top:12px"><button onclick="invokeTool('${t.name}',${JSON.stringify(fields.map(([k])=>k))})">Invoke</button></div>
+      <div style="margin-top:12px"><button onclick="invokeTool('${tool.name}',${JSON.stringify(fields.map(([k])=>k))})">${t('invoke')}</button></div>
       <div id="tool-result" style="margin-top:16px"></div>
-      <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--dim)">outputSchema</summary><pre class="json">${esc(JSON.stringify(t.outputSchema,null,2))}</pre></details>
+      <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--dim)">${t('outputSchema')}</summary><pre class="json">${esc(JSON.stringify(tool.outputSchema,null,2))}</pre></details>
     `;
   });
 }
@@ -267,16 +371,18 @@ async function invokeTool(name, fieldKeys) {
     args[k] = v;
   }
   const resultDiv = document.getElementById('tool-result');
-  resultDiv.innerHTML = '<span style="color:var(--dim)">Running...</span>';
+  resultDiv.innerHTML = `<span style="color:var(--dim)">${t('running')}</span>`;
   try {
     const r = await post(`/api/tools/${name}/call`, args);
-    resultDiv.innerHTML = `<h3>Result</h3><pre class="json">${esc(JSON.stringify(r,null,2))}</pre>`;
+    resultDiv.innerHTML = `<h3>${t('result')}</h3><pre class="json">${esc(JSON.stringify(r,null,2))}</pre>`;
   } catch(e) {
-    resultDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    resultDiv.innerHTML = `<span style="color:var(--red)">${t('error')}: ${e.message}</span>`;
   }
 }
 
-// ── Workflows ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Workflows tab
+// ═══════════════════════════════════════════════════════════════════
 
 const WORKFLOW_PRESETS = {
   '2-step sequential': {
@@ -298,14 +404,14 @@ const WORKFLOW_PRESETS = {
 };
 
 function renderWorkflows(m) {
-  m.innerHTML = `<h2>Workflows</h2>
+  m.innerHTML = `<h2>${t('workflows')}</h2>
     <div class="toolbar">
-      <label style="margin:0">Presets:</label>
-      ${Object.keys(WORKFLOW_PRESETS).map(k => `<button style="background:var(--surface);color:var(--text);border:1px solid var(--border)" onclick="loadPreset('${k}')">${k}</button>`).join('')}
+      <label style="margin:0">${t('presets')}:</label>
+      ${Object.keys(WORKFLOW_PRESETS).map(k => `<button class="ghost" onclick="loadPreset('${k}')">${k}</button>`).join('')}
     </div>
-    <label>Workflow definition (JSON)</label>
+    <label>${t('wfDefLabel')}</label>
     <textarea id="wf-def" style="height:200px;font-family:monospace;font-size:12px">${esc(JSON.stringify(WORKFLOW_PRESETS['2-step sequential'],null,2))}</textarea>
-    <div style="margin-top:12px"><button id="wf-run">Run Workflow</button></div>
+    <div style="margin-top:12px"><button id="wf-run">${t('runWorkflow')}</button></div>
     <div id="wf-result" style="margin-top:16px"></div>
   `;
   document.getElementById('wf-run').addEventListener('click', runWorkflow);
@@ -317,27 +423,29 @@ function loadPreset(key) {
 
 async function runWorkflow() {
   const btn = document.getElementById('wf-run');
-  btn.textContent = 'Running...'; btn.disabled = true;
+  btn.textContent = t('runningWf'); btn.disabled = true;
   const resultDiv = document.getElementById('wf-result');
-  resultDiv.innerHTML = '<span style="color:var(--dim)">Running workflow...</span>';
+  resultDiv.innerHTML = `<span style="color:var(--dim)">${t('runningWf')}</span>`;
   try {
     const def = JSON.parse(document.getElementById('wf-def').value);
     const r = await post('/api/workflows/run', def);
-    resultDiv.innerHTML = `<h3>Result — <span class="badge ${r.aggregate_state==='completed'?'ok':'err'}">${r.aggregate_state}</span> <span style="font-size:12px;color:var(--dim)">${r.total_elapsed_ms}ms</span></h3>
+    resultDiv.innerHTML = `<h3>${t('result')} — <span class="badge ${r.aggregate_state==='completed'?'ok':'err'}">${t(r.aggregate_state)}</span> <span style="font-size:12px;color:var(--dim)">${r.total_elapsed_ms}ms</span></h3>
       ${(r.steps||[]).map(s => `
         <div class="step-card ${s.state}">
-          <div class="step-header"><strong>${s.id}</strong> <span><span class="badge ${s.state==='completed'?'ok':s.state==='failed'?'err':'warn'}">${s.state}</span> ${s.elapsed_ms}ms · ${s.attempts} attempt${s.attempts>1?'s':''}</span></div>
+          <div class="step-header"><strong>${s.id}</strong> <span><span class="badge ${s.state==='completed'?'ok':s.state==='failed'?'err':'warn'}">${t(s.state)}</span> ${s.elapsed_ms}ms · ${s.attempts} ${s.attempts>1?t('attempts'):t('attempt')}</span></div>
           <div class="step-body"><pre class="json">${esc(JSON.stringify(s.output,null,2)).slice(0,800)}</pre></div>
         </div>
       `).join('')}
     `;
   } catch(e) {
-    resultDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    resultDiv.innerHTML = `<span style="color:var(--red)">${t('error')}: ${e.message}</span>`;
   }
-  btn.textContent = 'Run Workflow'; btn.disabled = false;
+  btn.textContent = t('runWorkflow'); btn.disabled = false;
 }
 
-// ── Memory ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Memory tab
+// ═══════════════════════════════════════════════════════════════════
 
 async function renderMemory(m) {
   const [patterns, rules] = await Promise.all([
@@ -346,18 +454,17 @@ async function renderMemory(m) {
   ]);
   m.innerHTML = `<div class="panel">
     <div class="col-left">
-      <h2>Memory</h2>
-      <label>Search</label><input id="mem-query" placeholder="search terms..." onkeydown="if(event.key==='Enter')searchMemory()">
-      <select id="mem-project" style="margin-top:8px"><option value="">All projects</option></select>
-      <button style="margin-top:8px;width:100%" onclick="searchMemory()">Search</button>
-      <h3 style="margin-top:16px">Patterns</h3>
-      <div style="font-size:12px">${patterns.patterns.map(p=>`<div class="card" style="cursor:default"><div class="title">${p.title}</div><div class="sub">${p.name}</div></div>`).join('')||'<div class="sub">None</div>'}</div>
-      <h3 style="margin-top:16px">Rules</h3>
-      <div style="font-size:12px">${rules.rules.map(r=>`<div class="card" style="cursor:default"><div class="title">${r.title}</div><div class="sub">${r.name}</div></div>`).join('')||'<div class="sub">None</div>'}</div>
+      <h2>${t('memory')}</h2>
+      <label>${t('search')}</label><input id="mem-query" placeholder="${t('searchPlaceholder')}" onkeydown="if(event.key==='Enter')searchMemory()">
+      <select id="mem-project" style="margin-top:8px"><option value="">${t('allProjects')}</option></select>
+      <button style="margin-top:8px;width:100%" onclick="searchMemory()">${t('search')}</button>
+      <h3 style="margin-top:16px">${t('patterns')}</h3>
+      <div style="font-size:12px">${patterns.patterns.map(p=>`<div class="card" style="cursor:default"><div class="title">${p.title}</div><div class="sub">${p.name}</div></div>`).join('')||`<div class="sub">${t('none')}</div>`}</div>
+      <h3 style="margin-top:16px">${t('rules')}</h3>
+      <div style="font-size:12px">${rules.rules.map(r=>`<div class="card" style="cursor:default"><div class="title">${r.title}</div><div class="sub">${r.name}</div></div>`).join('')||`<div class="sub">${t('none')}</div>`}</div>
     </div>
-    <div class="col-right" id="memory-results"><div style="color:var(--dim);padding:40px">Search memory to see results</div></div>
+    <div class="col-right" id="memory-results"><div style="color:var(--dim);padding:40px">${t('searchMemoryHint')}</div></div>
   </div>`;
-  // load project list for dropdown
   get('/api/projects').then(d => {
     const sel = document.getElementById('mem-project');
     (d.projects||[]).forEach(p => { const o=document.createElement('option'); o.value=p.slug; o.textContent=p.slug; sel.appendChild(o); });
@@ -369,33 +476,37 @@ async function searchMemory() {
   const project = document.getElementById('mem-project').value;
   if (!query && !project) return;
   const resultDiv = document.getElementById('memory-results');
-  resultDiv.innerHTML = '<span style="color:var(--dim)">Searching...</span>';
+  resultDiv.innerHTML = `<span style="color:var(--dim)">${t('searching')}</span>`;
   try {
     const params = new URLSearchParams();
     if (query) params.set('query', query);
     if (project) params.set('project', project);
     const r = await get('/api/memory?'+params.toString());
-    resultDiv.innerHTML = `<h2>Results for "${query||project}"</h2>
-      ${r.project_cards?.length ? `<h3>Projects (${r.project_cards.length})</h3>${r.project_cards.map(c=>`<div class="card"><div class="title">${c.slug}</div><div class="sub">${c.summary||''}</div></div>`).join('')}` : ''}
-      ${r.recent_cases?.length ? `<h3>Recent Cases (${r.recent_cases.length})</h3>`+r.recent_cases.map(c=>`<div class="card"><div class="sub">${typeof c==='string'?c:c.slug||''}</div></div>`).join('') : ''}
-      ${r.matched_patterns?.length ? `<h3>Matched Patterns</h3>`+r.matched_patterns.map(p=>`<div class="card"><div class="title">${p.slug||p.path||p}</div></div>`).join('') : ''}
-      ${r.matched_rules?.length ? `<h3>Matched Rules</h3>`+r.matched_rules.map(p=>`<div class="card"><div class="title">${p.slug||p.path||p}</div></div>`).join('') : ''}
-      ${!r.project_cards?.length&&!r.recent_cases?.length&&!r.matched_patterns?.length&&!r.matched_rules?.length ? '<div class="sub">No results.</div>' : ''}
+    resultDiv.innerHTML = `<h2>${t('resultsFor')}"${query||project}"</h2>
+      ${r.project_cards?.length ? `<h3>${t('projectCards')} (${r.project_cards.length})</h3>${r.project_cards.map(c=>`<div class="card"><div class="title">${c.slug}</div><div class="sub">${c.summary||''}</div></div>`).join('')}` : ''}
+      ${r.recent_cases?.length ? `<h3>${t('recentCases')} (${r.recent_cases.length})</h3>`+r.recent_cases.map(c=>`<div class="card"><div class="sub">${typeof c==='string'?c:c.slug||''}</div></div>`).join('') : ''}
+      ${r.matched_patterns?.length ? `<h3>${t('matchedPatterns')}</h3>`+r.matched_patterns.map(p=>`<div class="card"><div class="title">${p.slug||p.path||p}</div></div>`).join('') : ''}
+      ${r.matched_rules?.length ? `<h3>${t('matchedRules')}</h3>`+r.matched_rules.map(p=>`<div class="card"><div class="title">${p.slug||p.path||p}</div></div>`).join('') : ''}
+      ${!r.project_cards?.length&&!r.recent_cases?.length&&!r.matched_patterns?.length&&!r.matched_rules?.length ? `<div class="sub">${t('noResults')}</div>` : ''}
     `;
   } catch(e) {
-    resultDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    resultDiv.innerHTML = `<span style="color:var(--red)">${t('error')}: ${e.message}</span>`;
   }
 }
 
-// ── helpers ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════
 
 function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── init ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════
 
-loadTab('projects');
+applyI18n();
 </script>
 </body>
 </html>

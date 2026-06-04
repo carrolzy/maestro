@@ -1,140 +1,300 @@
-# Maestro
+# ⚡ Maestro — Model-Agnostic Agent Orchestration
 
-> An agent orchestration framework — conduct many agents like an orchestra,
-> with reusable memory, skills, and task packages as the score.
+Maestro is an **agent orchestration product** that any LLM can plug into — Claude,
+Codex, Gemini, DeepSeek, or any MCP-capable client. It gives every connected model
+the same reusable infrastructure: project onboarding, memory search, task packaging,
+tool execution, and deterministic multi-step workflows.
 
-Maestro is a model-agnostic framework of **reusable AI execution assets** —
-layered memory, project-type templates, standing rules, skills, and a
-task-package builder — plus an **MCP tool layer** so any LLM-based agent can plug
-in and use them.
+Started as a personal AI efficiency system, Maestro has evolved into a complete
+**local Agent OS** — from CLI toolbox to visual dashboard. No cloud required.
+Everything runs on your machine.
 
-It externalizes business semantics, conventions, and checklists so an agent does
-not need them re-injected on every task. The long-term goal is to grow into an
-agent orchestration product that can flexibly serve many business projects; see
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+> 🇨🇳 [中文文档](README.zh-CN.md)
 
-> **Local-first boundary:** this repository contains only the generic framework
-> and a worked example project (`projects/example-wxapp/`). Real business
-> projects, their memory, and their runtime artifacts are kept local and are
-> never committed (see `.gitignore`).
+---
 
-## Concepts
+## What It Does
 
-- **Project card** — a project's business context, overrides, and current task
-  (`projects/<project>/`), optionally with a `playbook.json` that injects
-  domain-specific guidance without any business logic in the core.
-- **Layered memory** — project cases (`memory/projects/`) promote to reusable
-  patterns (`memory/patterns/`) and then to standing rules (`memory/rules/`).
-- **Task package** — a generated, self-contained briefing for a task
-  (`tooling/build_task_package.py`), tracked through a run lifecycle
-  (`packaged → written_back → synced → closed`).
-- **Skills** — packaged procedures under `skills/` for intake, registration,
-  memory-first reads, verification, and write-back.
+| Capability | What it gives you |
+|---|---|
+| **Project onboarding** | Register any project with one command (or a web form). Auto-generates business context, playbook, and a machine-readable business card. |
+| **Memory system** | Layered memory (project cards, cases, patterns, rules) that the model reads before work and writes back after. |
+| **Task packaging** | Build a self-contained task brief from project context + requirement text — injectable into any model prompt. |
+| **MCP tool layer** | 10 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
+| **Provider adapters** | Same 10 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
+| **Workflow engine** | Deterministic DAG executor — define steps with dependencies, the engine runs them in parallel with lifecycle state tracking, verification gates, and retries. |
+| **Visual dashboard** | Single-page web UI — browse projects, invoke tools, run workflows, search memory. All clickable, zero CLI memorization. |
 
-## Default Workflow
-
-1. Identify the project type.
-2. Read the project card.
-3. Read the project-type template.
-4. Read project overrides.
-5. Build a task package.
-6. Execute the task.
-7. Run verification.
-8. Write back knowledge.
-9. Sync the latest write-back note into local project memory.
-10. Search local memory before new work when prior context already exists.
+---
 
 ## Quick Start
 
-```bash
-git clone <your-repo-url> ai-efficiency-system
-cd ai-efficiency-system
+### Prerequisites
 
-# Run the test suite (zero runtime dependencies; Python 3.10+)
-PYTHONPATH=tooling python3 -m pytest tooling/tests
+- **Python 3.10+** (the code uses `X | None` syntax)
+- A terminal
 
-# Build a task package against the bundled example project
-PYTHONPATH=tooling python3 tooling/build_task_package.py \
-  --project example-wxapp \
-  --requirement "购物车加购后确认订单金额需要保持一致"
-
-# Search local memory
-bin/search-memory.sh --project example-wxapp --query "cart"
-```
-
-### Configuration
-
-Paths are configurable via environment variables (with sensible `$HOME` defaults):
-
-- `AI_EFF_VAULT_ROOT` — Obsidian-style write-back vault root
-  (default `$HOME/Documents/my-knowledge-base`)
-- `AI_EFF_SKILLS_DEST` — local skills install destination override
-  (otherwise resolved from the selected `--runtime`; see Local Skill Installation)
-
-## MCP Tool Layer
-
-`tooling/ai_efficiency_mcp_server.py` exposes the core operations as MCP tools so
-an agent can call them directly:
-
-`search_memory`, `build_task_package`, `register_project`,
-`update_task_run_state`, `writeback_and_sync_memory`, `doctor_local_skills`.
-
-Each tool carries a full `inputSchema` **and** `outputSchema`, the server
-negotiates the MCP `protocolVersion` and answers `ping`, and a conformance suite
-(`tooling/tests/test_mcp_conformance.py`) checks that every tool's output matches
-its declared schema — so any MCP client gets a consistent, discoverable contract.
-
-### Context Pack (any model)
-
-For runtimes without MCP/skills (e.g. raw Gemini/DeepSeek API), emit a
-self-contained context pack and inject it into the prompt:
+### Install
 
 ```bash
-bin/context-pack.sh --project example-wxapp --requirement "购物车确认订单一致性"
-# or write to a file:
-bin/context-pack.sh --project example-wxapp --requirement "..." --out pack.md
+git clone https://github.com/carrolzy/maestro.git
+cd maestro
 ```
 
-## Directory Map
+That's it. No `pip install`, no `npm install`. Maestro is pure Python stdlib +
+vanilla HTML/CSS/JS.
 
-- `base/` — stable cross-project preferences and rules
-- `project-types/` — reusable templates (uniapp mini-program, Chrome extension,
-  Node automation, admin dashboard, big-screen dashboard)
-- `templates/` — copy-ready file templates
-- `projects/` — project cards and overrides (`example-wxapp` ships as a worked
-  example; your real projects stay local)
-- `checklists/` — implementation checklists for rollout phases
-- `memory/` — reusable patterns and standing rules; per-project memory
-  accumulates locally as you work
-- `skills/` — repo-owned skills (source of truth)
-- `bin/` — command wrappers (`register-project.sh`, `search-memory.sh`,
-  `bootstrap-skills.sh`, `preflight-public.sh`, …)
-- `tooling/` — Python tools, the MCP server, and tests
-- `runtime/` — task packages and task-run state (contents kept local)
-- `docs/` — [architecture](docs/ARCHITECTURE.md) and [roadmap](docs/ROADMAP.md)
+### Your first project
 
-## Local Skill Installation
-
-Repo-local skills live under `skills/` as the source of truth. They are plain
-Markdown, so they work across agent runtimes — only the install directory
-differs. Pick your runtime with `--runtime` (`codex`, `claude`, or `generic`):
+**Web dashboard (recommended for beginners):**
 
 ```bash
-bin/doctor-local-skills.sh   --runtime claude
-bin/bootstrap-skills.sh      --runtime claude
-bin/install-local-skills.sh  --runtime claude --all
+bin/dashboard.sh
+# → opens http://localhost:8420
+# → click "+ New", fill in the form, click "Create"
 ```
 
-Resolution order for the install destination: `--dest` → `AI_EFF_SKILLS_DEST`
-→ the runtime's default (e.g. `~/.codex/skills`, `~/.claude/skills`). The
-installer only overwrites skill directories previously installed by this
-repo-owned installer, so it will not silently replace unrelated local skills.
-Restart the agent runtime after installing so trigger metadata reloads.
+**Interactive CLI:**
 
-For MCP-capable clients you don't need to install skills at all — point the
-client at `tooling/ai_efficiency_mcp_server.py` (see
-[ARCHITECTURE.md](docs/ARCHITECTURE.md#integrations--model-adapters)).
+```bash
+bin/onboard-project.sh
+# → answers three prompts (slug, summary, type)
+# → ✅ All checks passed
+```
+
+**For scripts / CI:**
+
+```bash
+bin/onboard-project.sh \
+  --project my-app \
+  --summary "An e-commerce mini-program" \
+  --project-type uniapp-mini-program
+```
+
+### Build a task package
+
+```bash
+bin/context-pack.sh --project my-app --requirement "Add a shopping cart confirmation page"
+# prints package.md to stdout — inject into any LLM prompt
+```
+
+### Run a workflow
+
+```bash
+# Via the dashboard: Workflows tab → pick a preset → click Run
+# Via the API:
+curl -X POST http://localhost:8420/api/workflows/run \
+  -H 'Content-Type: application/json' \
+  -d '{"project":"my-app","steps":[
+    {"id":"s1","tool":"search_memory","args":{"query":"cart"}},
+    {"id":"s2","tool":"validate_project","args":{"project":"my-app"}}
+  ]}'
+```
+
+### Use with Claude Code / Cursor (MCP)
+
+Add to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "maestro": {
+      "command": "python3",
+      "args": ["tooling/ai_efficiency_mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "<path-to-maestro>/tooling"
+      }
+    }
+  }
+}
+```
+
+### Use with OpenAI / DeepSeek / Gemini (raw API)
+
+```bash
+# Get provider-native tool declarations (copy into your API call)
+bin/provider-tools.sh --provider openai --list
+bin/provider-tools.sh --provider gemini --list
+bin/provider-tools.sh --provider anthropic --list
+```
+
+---
+
+## Architecture
+
+Maestro is built in five phases. Each phase adds a layer without breaking the
+previous ones.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Phase 5 — Visual Dashboard                         │
+│  bin/dashboard.sh → api_server.py → dashboard.html  │
+├─────────────────────────────────────────────────────┤
+│  Phase 4 — Orchestration Runtime                    │
+│  workflow_engine.py (DAG + parallel + retry)        │
+│  workflow_state.py (lifecycle state machine)        │
+├─────────────────────────────────────────────────────┤
+│  Phase 3 — Pluggable Business Onboarding            │
+│  playbook_schema.py • business_card.py              │
+│  validate_project.py • onboard_project.py           │
+├─────────────────────────────────────────────────────┤
+│  Phase 2 — Model-Agnostic Adapters                  │
+│  adapters/ (OpenAI • DeepSeek • Anthropic • Gemini) │
+│  tool_registry.py (canonical specs)                 │
+├─────────────────────────────────────────────────────┤
+│  Phase 1 — MCP Tool Layer                           │
+│  ai_efficiency_mcp_server.py (10 tools, schemas)    │
+│  context_pack.py (raw-API context injection)        │
+├─────────────────────────────────────────────────────┤
+│  Phase 0 — Reusable Asset Library                   │
+│  memory/ • projects/ • project-types/ • templates/  │
+│  skills/ • tooling/*.py                             │
+└─────────────────────────────────────────────────────┘
+```
+
+**Design principles:**
+- **Business stays out of core.** Generic engine + per-project config (`playbook.json`, `business-card.json`) only.
+- **Memory before work.** Read prior context before starting; write back after.
+- **Verify before close.** No task closed without evidence.
+- **Zero runtime dependencies.** Tooling uses Python stdlib only. Dashboard uses vanilla JS/CSS — no build step, no npm.
+- **Model-agnostic.** No LLM calls in core code. Every surface (MCP, adapters, dashboard API) dispatches through the same canonical `server.invoke()`.
+
+---
+
+## Project Structure
+
+```
+maestro/
+├── bin/                          # One-command launchers
+│   ├── dashboard.sh              #   Start visual dashboard
+│   ├── onboard-project.sh        #   Interactive project onboarding
+│   ├── context-pack.sh           #   Emit model-agnostic task context
+│   └── provider-tools.sh         #   Provider-native tool declarations
+│
+├── tooling/                      # Core engine (pure Python, zero deps)
+│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (10 tools)
+│   ├── tool_registry.py          #   Canonical tool specs (single source of truth)
+│   ├── adapters/                 #   Per-provider format translators
+│   │   ├── openai.py / anthropic.py / gemini.py / base.py
+│   ├── workflow_engine.py        #   Deterministic DAG executor
+│   ├── workflow_state.py         #   Lifecycle state machine
+│   ├── onboard_project.py        #   Guided onboarding (CLI + API)
+│   ├── validate_project.py       #   Project readiness validator
+│   ├── playbook_schema.py        #   playbook.json schema + validator
+│   ├── business_card.py          #   business-card.json schema + helpers
+│   ├── project_types.py          #   Project-type discovery
+│   ├── api_server.py             #   Dashboard REST API (stdlib http.server)
+│   ├── context_pack.py           #   Model-agnostic context pack emitter
+│   ├── jsonschema_mini.py        #   Zero-dep JSON Schema validator
+│   ├── task_package_builder.py   #   Build task packages from context
+│   ├── search_memory.py          #   Search layered memory
+│   ├── register_project.py       #   Register new project shells
+│   ├── update_task_run_state.py  #   Task lifecycle state persistence
+│   ├── writeback_and_sync_memory.py  # Obsidian write-back + memory sync
+│   ├── local_skills_doctor.py    #   Skills installation diagnostics
+│   ├── runtime_targets.py        #   Agent runtime registry
+│   ├── ui/
+│   │   └── dashboard.html        #   Single-page visual dashboard
+│   └── tests/                    #   147 tests (unittest, zero deps)
+│
+├── projects/                     # Per-project config (business data — local only)
+│   └── example-wxapp/            #   Sample project for demonstration
+│       ├── business-context.md   #   Human-readable project description
+│       ├── playbook.json         #   Domain-specific guidance
+│       └── ...
+│
+├── project-types/                # Reusable project-type templates
+│   ├── uniapp-mini-program/      #   Mini-program / uniapp
+│   ├── admin-dashboard/          #   Back-office systems
+│   ├── big-screen-dashboard/     #   Large-screen / visualization
+│   ├── chrome-extension/         #   Browser extensions
+│   └── node-automation/          #   Scripts / automation
+│
+├── memory/                       # Layered persistent memory
+│   ├── patterns/                 #   Reusable solution patterns
+│   ├── rules/                    #   Standing rules
+│   └── projects/                 #   Per-project cases
+│
+├── templates/                    # Canonical markdown templates
+├── skills/                       # Markdown skills (install per-runtime)
+├── docs/                         # Documentation
+│   ├── ARCHITECTURE.md
+│   └── ROADMAP.md
+│
+├── README.md                     # You are here
+└── README.zh-CN.md               # 中文文档
+```
+
+---
+
+## Tools Reference
+
+These 10 tools are available via MCP, provider adapters, dashboard, and API:
+
+| Tool | Description |
+|---|---|
+| `search_memory` | Search project cards, cases, patterns, and rules |
+| `build_task_package` | Build a task brief from project context + requirement |
+| `register_project` | Create a new project shell from templates |
+| `update_task_run_state` | Record task lifecycle state transitions |
+| `writeback_and_sync_memory` | Write a note into vault + sync to memory |
+| `doctor_local_skills` | Diagnose local skill installation status |
+| `validate_project` | Check project readiness (files, playbook, card, type) |
+| `list_project_types` | List available project-type templates with metadata |
+| `run_workflow` | Execute a DAG workflow definition |
+| `get_workflow_status` | Query workflow run status by project + task_slug |
+
+---
+
+## Workflow Engine
+
+Define steps with dependencies — the engine handles the rest:
+
+```json
+{
+  "project": "my-app",
+  "task_slug": "2026-06-04-cart-consistency",
+  "steps": [
+    { "id": "plan",    "tool": "build_task_package", "args": {...} },
+    { "id": "impl-a",  "tool": "...", "args": {...}, "depends_on": ["plan"] },
+    { "id": "impl-b",  "tool": "...", "args": {...}, "depends_on": ["plan"] },
+    { "id": "verify",  "tool": "...", "args": {...}, "depends_on": ["impl-a", "impl-b"], "verify": {"condition": "no_error"} },
+    { "id": "close",   "tool": "writeback_and_sync_memory", "args": {...}, "depends_on": ["verify"] }
+  ]
+}
+```
+
+- Steps with **no inter-dependencies** run in **parallel**
+- **`verify`** gate blocks progression on failure
+- **`retry`** with `max_attempts` on any step
+- Built-in **`fan_out`** verb for parallel tool arrays
+- Full lifecycle state machine: `pending → in_progress → verifying → completed | failed → retry`
+
+---
+
+## Running Tests
+
+```bash
+PYTHONPATH=tooling python3.11 -m unittest discover -s tooling/tests -p 'test_*.py'
+# 147 tests pass
+```
+
+---
+
+## Development
+
+- **Branch model:** `main` = clean/releasable, `develop` = work
+- **Commit style:** Conventional Commits
+- **Preflight:** `bash bin/preflight-public.sh` — blocks business data from reaching the public repo
+- **Python target:** 3.10+ (PEP 604 `X | None` syntax)
+- **Dependency policy:** Zero runtime dependencies for tooling. Dashboard is vanilla HTML/CSS/JS.
+
+---
 
 ## License
 
-[MIT](LICENSE)
+MIT — see [LICENSE](LICENSE).
+
+---
+
+🤖 Built with [Claude Code](https://claude.com/claude-code)
