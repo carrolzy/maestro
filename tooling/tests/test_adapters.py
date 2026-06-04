@@ -21,6 +21,7 @@ EXPECTED_TOOLS = [
     "get_workflow_status",
     "resume_task",
     "handoff_task",
+    "set_active_task",
 ]
 
 

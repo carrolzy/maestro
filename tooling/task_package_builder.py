@@ -338,6 +338,13 @@ def build_task_package(
             task_slug=task_slug,
             state="packaged",
         )
+        # Set the active-task pointer so the PostToolUse checkpoint hook can
+        # attribute subsequent file edits to this task automatically.
+        try:
+            from active_task import set_active_task
+            set_active_task(runtime_root, project, task_slug, agent="unknown")
+        except Exception:
+            pass  # never block packaging on pointer write
 
     if vault_root is not None and note_path is not None:
         writeback_and_sync_memory(

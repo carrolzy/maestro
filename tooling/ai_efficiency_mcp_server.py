@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from active_task import set_active_task
 from checkpoint import Checkpoint, build_resume_context, save_checkpoint
 from local_skills_doctor import assess_local_skills
 from project_types import list_project_types
@@ -59,6 +60,7 @@ class AiEfficiencyMcpServer:
             "get_workflow_status": self._call_get_workflow_status,
             "resume_task": self._call_resume_task,
             "handoff_task": self._call_handoff_task,
+            "set_active_task": self._call_set_active_task,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -296,6 +298,19 @@ class AiEfficiencyMcpServer:
             "to_agent": to_agent,
             "state": "handed_off",
             "checkpoint_path": str(path),
+        }
+
+    def _call_set_active_task(self, arguments: JsonDict) -> JsonDict:
+        runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
+        project = _required_string(arguments, "project")
+        task_slug = _required_string(arguments, "task_slug")
+        agent = _required_string(arguments, "agent")
+        pointer_path = set_active_task(runtime_root, project, task_slug, agent)
+        return {
+            "project": project,
+            "task_slug": task_slug,
+            "agent": agent,
+            "pointer_path": str(pointer_path),
         }
 
 

@@ -34,6 +34,7 @@ class Checkpoint:
     files_modified: list[str] = field(default_factory=list)  # relative paths
     next_hint: str = ""                    # suggested next step for the resuming agent
     timestamp: str = ""                    # ISO 8601, auto-filled if empty
+    session_id: str = ""                   # runtime session id (for hook merge)
 
     def __post_init__(self) -> None:
         if not self.timestamp:
@@ -70,9 +71,76 @@ def save_checkpoint(
         "files_modified": checkpoint.files_modified,
         "next_hint": checkpoint.next_hint,
         "timestamp": checkpoint.timestamp,
+        "session_id": checkpoint.session_id,
     }
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def append_to_session_checkpoint(
+    runtime_root: Path,
+    project: str,
+    task_slug: str,
+    *,
+    agent: str,
+    session_id: str,
+    file_modified: str,
+) -> Path:
+    """Auto-record a file edit into a per-session 'auto-edit' checkpoint.
+
+    Merge rule: if the LATEST checkpoint is an unsealed 'auto-edit' from the same
+    session, append the file to it. Otherwise start a new 'auto-edit' checkpoint.
+    A checkpoint is "sealed" simply by no longer being the latest — once any
+    explicit checkpoint (or a new session's auto-edit) lands after it, it is
+    never appended to again. This keeps the hook and explicit checkpoints
+    correctly interleaved on the timeline without exploding into one file per
+    edit.
+
+    Concurrency-safe: the whole read-modify-write is guarded by a file lock.
+    """
+    from active_task import _locked  # reuse the same lock primitive
+
+    cdir = _checkpoints_dir(runtime_root, project, task_slug)
+    cdir.mkdir(parents=True, exist_ok=True)
+    lock_anchor = cdir / ".session.lock"
+
+    with _locked(lock_anchor):
+        existing = sorted(cdir.glob("*.json"))
+        latest = existing[-1] if existing else None
+
+        if latest is not None:
+            try:
+                data = json.loads(latest.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                data = {}
+            # Append to the latest only if it's our session's auto-edit.
+            if data.get("step") == "auto-edit" and data.get("session_id") == session_id:
+                files = list(data.get("files_modified", []))
+                if file_modified not in files:
+                    files.append(file_modified)
+                data["files_modified"] = files
+                data["summary"] = f"Auto-recorded {len(files)} file edit(s) this session"
+                data["timestamp"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                latest.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                return latest
+
+        # Otherwise start a new auto-edit checkpoint.
+        seq = len(existing) + 1
+        path = cdir / f"{seq:03d}-auto-edit.json"
+        payload = {
+            "seq": seq,
+            "agent": agent,
+            "step": "auto-edit",
+            "state": "in_progress",
+            "summary": "Auto-recorded 1 file edit(s) this session",
+            "output": None,
+            "files_modified": [file_modified],
+            "next_hint": "continue editing or run verification",
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "session_id": session_id,
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return path
 
 
 def load_latest_checkpoint(
@@ -244,4 +312,5 @@ def _file_to_checkpoint(path: Path) -> Checkpoint:
         files_modified=data.get("files_modified", []),
         next_hint=data.get("next_hint", ""),
         timestamp=data.get("timestamp", ""),
+        session_id=data.get("session_id", ""),
     )

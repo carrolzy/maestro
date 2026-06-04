@@ -81,6 +81,55 @@ MCPEOF
   echo "✅  .mcp.json created (using $PYTHON)"
 fi
 
+# ── 3.5 Register the forced-checkpoint PostToolUse hook ────────────
+
+echo ""
+echo "🪝  Registering checkpoint hook (.claude/settings.json)..."
+
+PYTHONPATH="$ROOT_DIR/tooling" "$PYTHON" - "$ROOT_DIR" "$PYTHON" <<'HOOKEOF'
+import json, sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+python = sys.argv[2]
+settings_path = root / ".claude" / "settings.json"
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+settings = {}
+if settings_path.exists():
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        settings = {}
+
+hook_cmd = f'{python} "{root}/tooling/hooks/checkpoint_hook.py"'
+
+hooks = settings.setdefault("hooks", {})
+post = hooks.setdefault("PostToolUse", [])
+
+# Idempotent: skip if our hook is already registered.
+already = any(
+    any(h.get("command", "").endswith("checkpoint_hook.py") or "checkpoint_hook.py" in h.get("command", "")
+        for h in entry.get("hooks", []))
+    for entry in post
+)
+if not already:
+    post.append({
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [{
+            "type": "command",
+            "command": hook_cmd,
+            "timeout": 10,
+        }],
+    })
+    settings_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print("registered")
+else:
+    print("already-present")
+HOOKEOF
+
+echo "✅  Checkpoint hook registered (fires on Edit/Write/MultiEdit)"
+
 # ── 4. Health check ───────────────────────────────────────────────
 
 echo ""
