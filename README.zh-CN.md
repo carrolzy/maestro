@@ -37,10 +37,19 @@ DeepSeek，或任何支持 MCP 的客户端。它为每个接入的模型提供�
 ```bash
 git clone https://github.com/carrolzy/maestro.git
 cd maestro
+
+# 一条命令配好 Claude Code（或任何 MCP 客户端）的所有配置：
+bin/setup-claude.sh
 ```
 
-就这些。不需要 `pip install`，不需要 `npm install`。Maestro 是纯 Python 标准库 +
-原生 HTML/CSS/JS。
+安装脚本会自动找到你的 Python、安装全部 12 个 Maestro 技能、创建 `.mcp.json`
+让 Claude 能调用全部 14 个 MCP 工具，并运行健康检查。**就此完成。** 重启 Claude Code
+即可直接说「列出我的项目」或「接入一个新项目」。
+
+不需要 `pip install`、不需要 `npm install`、不需要手动配置。
+
+> 💡 **用 Codex 或 Cursor？** 同样跑 `bin/setup-claude.sh`。专门给 Codex 加装：
+> `bin/bootstrap-skills.sh --runtime codex`
 
 ### 接入第一个项目
 
@@ -52,8 +61,20 @@ bin/dashboard.sh
 # → 点击「+ 新建」，填表单，点击「创建」
 ```
 
+**直接对 Claude 说：**
+
+> 「接入一个叫 my-app 的新项目，是一个电商小程序」
+
+Claude 会自动通过 MCP 调用 `register_project`，生成剧本和商务名片，
+校验一切。30 秒搞定。
+
 **交互式命令行：**
 
+```bash
+bin/onboard-project.sh
+# → 回答三个问题（标识、描述、类型）
+# → ✅ 所有检查通过
+```
 ```bash
 bin/onboard-project.sh
 # → 回答三个问题（标识、描述、类型）

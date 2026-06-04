@@ -39,16 +39,47 @@ Everything runs on your machine.
 ```bash
 git clone https://github.com/carrolzy/maestro.git
 cd maestro
+
+# One command to set up everything for Claude Code (or any MCP client):
+bin/setup-claude.sh
 ```
 
-That's it. No `pip install`, no `npm install`. Maestro is pure Python stdlib +
-vanilla HTML/CSS/JS.
+The setup script auto-detects your Python, installs all 12 Maestro skills,
+creates `.mcp.json` for MCP tool access, and runs a health check. **You're
+done.** Restart Claude Code and you can immediately say "list my projects" or
+"onboard a new project."
+
+No `pip install`. No `npm install`. No manual config. Maestro is pure Python
+stdlib + vanilla HTML/CSS/JS.
+
+> 💡 **Using Codex or Cursor instead?** The same setup works — just run
+> `bin/setup-claude.sh` (it installs skills to `~/.claude/skills/`). For
+> Codex specifically, also run: `bin/bootstrap-skills.sh --runtime codex`
 
 ### Your first project
 
 **Web dashboard (recommended for beginners):**
 
 ```bash
+bin/dashboard.sh
+# → opens http://localhost:8420
+# → click "+ New", fill in the form, click "Create"
+```
+
+**Ask Claude to do it for you:**
+
+> "Onboard a new project called my-app — it's an e-commerce mini-program"
+
+Claude calls `register_project` via MCP, generates the playbook, validates
+everything. 30 seconds.
+
+**Interactive CLI:**
+
+```bash
+bin/onboard-project.sh
+# → answers three prompts (slug, summary, type)
+# → ✅ All checks passed
+```
 bin/dashboard.sh
 # → opens http://localhost:8420
 # → click "+ New", fill in the form, click "Create"
