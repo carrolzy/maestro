@@ -126,21 +126,24 @@ tasks.
   anchored to the Maestro repo from the script's own location, so edits made
   from inside a *business project* still record to the central store.
 - ✅ `tooling/hooks/checkpoint_hook.py`: runtime-agnostic PostToolUse hook.
-  Loosely matches edit tools and extracts the file path across both **Claude**
-  (`Edit`/`Write`, `tool_input.file_path`) and **Codex** (`apply_patch`, body in
-  `tool_input.command` — parsed from the `*** Update/Add File:` envelope; also
-  `tool_input.input`/`path` for other runtimes). Always exits 0 — never blocks
-  an edit. `AI_EFF_HOOK_DEBUG=1` dumps raw payloads.
+  **Claude**: matches `Edit`/`Write`, path from `tool_input.file_path`.
+  **Codex**: codex-cli 0.135 only fires PostToolUse reliably for the shell/Bash
+  tool — `apply_patch`/MCP edits don't fire yet (openai/codex#16732) — so on
+  Codex the hook matches `shell` and parses the command text for the written
+  file (apply_patch heredoc body, `> file` redirection, `tee`, `sed -i`). A
+  shell command with no write target records nothing. Always exits 0 — never
+  blocks an edit. `AI_EFF_HOOK_DEBUG=1` dumps raw payloads.
 - ✅ Session-merge: consecutive same-session edits collapse into one `auto-edit`
   checkpoint (sealed once an explicit checkpoint lands after it) — no explosion.
 - ✅ `set_active_task` MCP tool (13 tools now); `build_task_package` auto-sets
   the pointer. Both `bin/setup-claude.sh` (JSON, `command` as array) and
   `bin/setup-codex.sh` (TOML, `command` as a single shell string, matcher
-  `apply_patch|Edit|Write`) register the hook automatically. Codex requires a
-  one-time `/hooks` trust of the new hook before it fires.
-- ✅ 23 checkpoint/hook tests (incl. Codex `apply_patch` via `tool_input.command`
-  and the legacy `input` field, `edit_file`/`write_file`/`shell` payloads); 185
-  tests total, all green; generated Codex inline-hook TOML validated.
+  `shell|Bash|apply_patch|Edit|Write`) register the hook automatically. Codex
+  requires a one-time `/hooks` trust of the new hook before it fires; editing
+  the hook changes its hash and re-triggers the trust prompt.
+- ✅ 27 checkpoint/hook tests (incl. Codex shell+apply_patch heredoc, `> / tee /
+  sed -i` redirections, and no-write commands that must NOT record); 189 tests
+  total, all green; generated Codex inline-hook TOML validated.
 - Checkpoints are now **forced**, not left to model discretion — the handoff
   chain never breaks even if an agent forgets to checkpoint. Works **both
   directions**: Codex↔Claude.

@@ -196,10 +196,30 @@ class HookScriptTests(unittest.TestCase):
         self.assertIn("lib/new.py", cps[0].files_modified)
 
     def test_codex_shell_tool_ignored(self) -> None:
+        # A shell command with no write target records nothing.
         set_active_task(self.runtime, "app", "t1", "codex")
         rc = self._run_hook({"tool_name": "shell", "tool_input": {"command": "ls"}, "session_id": "c1"})
         self.assertEqual(rc, 0)
         self.assertEqual(list_checkpoints(self.runtime, "app", "t1"), [])
+
+    def test_codex_shell_apply_patch_heredoc(self) -> None:
+        # Codex 0.135 fires PostToolUse only for shell; apply_patch arrives as a
+        # heredoc inside the shell command text. Parse the path from the body.
+        set_active_task(self.runtime, "app", "t1", "codex")
+        cmd = "apply_patch <<'EOF'\n*** Begin Patch\n*** Update File: src/main.py\n@@\n-a\n+b\n*** End Patch\nEOF"
+        rc = self._run_hook({"tool_name": "shell", "tool_input": {"command": cmd}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        cps = list_checkpoints(self.runtime, "app", "t1")
+        self.assertEqual(len(cps), 1)
+        self.assertIn("src/main.py", cps[0].files_modified)
+
+    def test_codex_shell_redirection_recorded(self) -> None:
+        set_active_task(self.runtime, "app", "t1", "codex")
+        rc = self._run_hook({"tool_name": "shell", "tool_input": {"command": "echo hi > notes.txt"}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        cps = list_checkpoints(self.runtime, "app", "t1")
+        self.assertEqual(len(cps), 1)
+        self.assertIn("notes.txt", cps[0].files_modified)
 
     def test_alt_tool_field_name(self) -> None:
         # Some runtimes use "tool" instead of "tool_name"
@@ -214,24 +234,48 @@ class HookScriptTests(unittest.TestCase):
 class PathExtractionUnitTests(unittest.TestCase):
     """Direct unit tests for the hook's path-extraction helpers."""
 
-    def test_parse_apply_patch_path(self) -> None:
+    @staticmethod
+    def _mod():
         import importlib.util
         spec = importlib.util.spec_from_file_location("checkpoint_hook", HOOK_SCRIPT)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
+        return mod
+
+    def test_parse_apply_patch_path(self) -> None:
+        mod = self._mod()
         self.assertEqual(mod._parse_patch_path("*** Update File: a/b.py\n@@"), "a/b.py")
         self.assertEqual(mod._parse_patch_path("+++ b/src/x.js\n"), "src/x.js")
         self.assertEqual(mod._parse_patch_path("no path here"), "")
 
     def test_is_edit_tool(self) -> None:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("checkpoint_hook", HOOK_SCRIPT)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = self._mod()
         for name in ("Edit", "Write", "MultiEdit", "edit_file", "write_file", "apply_patch", "create_file"):
             self.assertTrue(mod._is_edit_tool(name), name)
         for name in ("Read", "Grep", "search_files", "list_dir", "shell", "Bash"):
             self.assertFalse(mod._is_edit_tool(name), name)
+
+    def test_is_shell_tool(self) -> None:
+        mod = self._mod()
+        for name in ("shell", "Bash", "bash", "local_shell", "run_command"):
+            self.assertTrue(mod._is_shell_tool(name), name)
+        for name in ("Edit", "Write", "apply_patch", "Read"):
+            self.assertFalse(mod._is_shell_tool(name), name)
+
+    def test_parse_shell_write_path(self) -> None:
+        mod = self._mod()
+        self.assertEqual(mod._parse_shell_write_path("echo x > out.txt"), "out.txt")
+        self.assertEqual(mod._parse_shell_write_path("cat a >> log.md"), "log.md")
+        self.assertEqual(mod._parse_shell_write_path("echo x | tee conf.yaml"), "conf.yaml")
+        self.assertEqual(mod._parse_shell_write_path("sed -i 's/a/b/' file.py"), "file.py")
+        self.assertEqual(
+            mod._parse_shell_write_path("apply_patch <<'EOF'\n*** Add File: n.py\nEOF"), "n.py"
+        )
+        # No write target → empty (these must NOT record a checkpoint).
+        self.assertEqual(mod._parse_shell_write_path("ls -la"), "")
+        self.assertEqual(mod._parse_shell_write_path("grep foo bar.txt"), "")
+        self.assertEqual(mod._parse_shell_write_path("python t.py 2>&1"), "")
+        self.assertEqual(mod._parse_shell_write_path("echo hi > /dev/null"), "")
 
 
 if __name__ == "__main__":

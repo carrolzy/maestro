@@ -140,10 +140,13 @@ else
 # ── Maestro checkpoint hook (added by bin/setup-codex.sh) ──
 # Auto-records every file edit to a checkpoint so a crashed/interrupted
 # Codex session can be resumed by Claude (or vice versa).
-# Codex inline-hook schema: matcher filters tool_name (apply_patch fires for
-# file edits and also matches Edit/Write); 'command' is a single shell string.
+# NOTE: Codex (as of 0.135) only fires PostToolUse reliably for the shell/Bash
+# tool — apply_patch / MCP edits don't fire yet (openai/codex#16732). So we
+# match shell here; the hook parses the command text for the written file
+# (apply_patch heredoc, > redirection, tee, sed -i) and records nothing for
+# non-write commands. Edit|Write|apply_patch stay listed for forward-compat.
 [[hooks.PostToolUse]]
-matcher = "apply_patch|Edit|Write"
+matcher = "shell|Bash|apply_patch|Edit|Write"
 
 [[hooks.PostToolUse.hooks]]
 type = "command"
