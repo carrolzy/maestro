@@ -84,9 +84,21 @@ tasks.
 - Multi-step pipelines run deterministically — the engine is infrastructure,
   the LLM supplies the intelligence. Next: product surface (Phase 5)
 
-### Phase 5 — Product surface
-- Service/web packaging, multi-tenant isolation, observability
-- Marketplace of project-type templates and reusable patterns
+### Phase 5 — Product surface ✅
+- ✅ `tooling/api_server.py`: stdlib `http.server` JSON REST API (zero new
+  dependencies) wrapping `AiEfficiencyMcpServer` — endpoints for projects
+  CRUD, tools list+invoke, workflow run, memory search, project-types
+- ✅ `tooling/ui/dashboard.html`: single-page visual dashboard — four tabs
+  (Projects with onboard modal, Tools with dynamic form+invoke, Workflows
+  with JSON editor+presets+step results, Memory with search+browse). Dark
+  theme, vanilla JS+CSS, no build step, no npm.
+- ✅ `bin/dashboard.sh`: one-command launcher — starts the API server and
+  opens the browser. Zero-memory-cost visual control.
+- ✅ 17 API server tests (HTTP-level, real server in thread) + 147 total
+  tests all green; preflight clean
+- Maestro 1.0 complete: from CLI toolbox to visual autopilot. Every tool,
+  project, workflow, and memory search is clickable, browsable, and
+  live-validated.
 
 ## Design Principles
 

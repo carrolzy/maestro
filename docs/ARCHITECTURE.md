@@ -145,6 +145,23 @@ The workflow engine is how Maestro graduates from "toolbox" to "autopilot":
 steps, ordering, parallelism, and lifecycle are deterministic infrastructure,
 and the LLM supplies the intelligence (what steps, in what order).
 
+## Dashboard
+
+Maestro ships with a local web dashboard (`bin/dashboard.sh` — starts on
+port 8420, opens browser automatically):
+
+- `tooling/api_server.py` — stdlib `http.server` JSON REST API (zero new deps)
+  wrapping `AiEfficiencyMcpServer`. Endpoints: `/api/projects` CRUD,
+  `/api/tools` list+invoke, `/api/workflows/run`, `/api/memory` search,
+  `/api/project-types`, `/api/health`.
+- `tooling/ui/dashboard.html` — single-page app (vanilla JS + CSS, no build
+  step, no npm): four tabs — Projects (list + detail + onboard modal), Tools
+  (dynamic form + invoke), Workflows (JSON editor + presets + step results),
+  Memory (search + patterns/rules browse). Dark theme, works at 1024px+.
+
+The dashboard is the visual answer to "命令会记不住" — everything is
+clickable, browsable, and live-validated.
+
 ## Extending Maestro
 
 - **New project type:** add a folder under `project-types/`.

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maestro Dashboard</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --border: #2a2d3a;
+  --text: #e1e4eb;
+  --dim: #8b8fa3;
+  --accent: #6c8cff;
+  --green: #4caf93;
+  --red: #f2645a;
+  --yellow: #e5c064;
+  --radius: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
+a { color:var(--accent); text-decoration:none; }
+button, .btn { background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:var(--radius); cursor:pointer; font-size:13px; }
+button:hover, .btn:hover { opacity:.85; }
+button.danger { background:var(--red); }
+input, textarea, select { background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; font-size:13px; font-family:inherit; width:100%; }
+textarea { resize:vertical; min-height:80px; }
+label { font-size:12px; color:var(--dim); display:block; margin-bottom:4px; margin-top:12px; }
+/* tabs */
+nav { display:flex; flex-direction:column; width:200px; border-right:1px solid var(--border); padding:16px 0; flex-shrink:0; }
+nav .logo { padding:0 16px 16px; font-weight:700; font-size:16px; color:var(--accent); }
+nav a { display:block; padding:10px 16px; color:var(--dim); font-size:13px; transition:all .15s; border-left:3px solid transparent; }
+nav a:hover, nav a.active { color:var(--text); background:var(--surface); border-left-color:var(--accent); }
+/* main */
+main { flex:1; overflow-y:auto; padding:24px 32px; }
+.panel { display:flex; gap:24px; height:100%; }
+.col-left { width:280px; flex-shrink:0; overflow-y:auto; border-right:1px solid var(--border); padding-right:16px; }
+.col-right { flex:1; overflow-y:auto; }
+h2 { font-size:18px; margin-bottom:16px; color:var(--text); }
+h3 { font-size:14px; margin-bottom:8px; color:var(--dim); }
+/* cards */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; margin-bottom:8px; cursor:pointer; transition:border-color .15s; }
+.card:hover { border-color:var(--accent); }
+.card.active { border-color:var(--accent); background:#1e2240; }
+.card .title { font-size:14px; font-weight:600; }
+.card .sub { font-size:12px; color:var(--dim); margin-top:4px; }
+/* badges */
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.badge.ok { background:#1a3a2e; color:var(--green); }
+.badge.warn { background:#3a3010; color:var(--yellow); }
+.badge.err { background:#3a1a1a; color:var(--red); }
+/* modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; width:480px; max-height:80vh; overflow-y:auto; }
+.modal h2 { margin-bottom:16px; }
+/* json output */
+pre.json { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:12px; font-size:12px; max-height:400px; overflow:auto; white-space:pre-wrap; word-break:break-all; }
+/* toolbar */
+.toolbar { display:flex; gap:8px; margin-bottom:16px; align-items:center; }
+.spacer { flex:1; }
+/* step cards in workflow results */
+.step-card { border-left:3px solid var(--border); padding:8px 12px; margin-bottom:8px; background:var(--surface); border-radius:0 var(--radius) var(--radius) 0; }
+.step-card.completed { border-left-color:var(--green); }
+.step-card.failed { border-left-color:var(--red); }
+.step-card .step-header { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+.step-card .step-body { font-size:12px; color:var(--dim); margin-top:4px; }
+/* form row */
+.form-row { display:flex; gap:12px; }
+/* state icon */
+.state-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+.state-dot.ok { background:var(--green); }
+.state-dot.warn { background:var(--yellow); }
+.state-dot.err { background:var(--red); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">⚡ Maestro</div>
+  <a href="#" data-tab="projects" class="active">📁 Projects</a>
+  <a href="#" data-tab="tools">🔧 Tools</a>
+  <a href="#" data-tab="workflows">⚙️ Workflows</a>
+  <a href="#" data-tab="memory">🧠 Memory</a>
+</nav>
+
+<main id="main"></main>
+
+<script>
+const API = '';
+
+async function get(url) {
+  const r = await fetch(API + url);
+  if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.error||r.statusText); }
+  return r.json();
+}
+async function post(url, body) {
+  const r = await fetch(API + url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(j.error||r.statusText);
+  return j;
+}
+
+// navigation
+let currentTab = 'projects';
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('nav a').forEach(x=>x.classList.remove('active'));
+    a.classList.add('active');
+    currentTab = a.dataset.tab;
+    loadTab(currentTab);
+  });
+});
+
+async function loadTab(tab) {
+  const m = document.getElementById('main');
+  m.innerHTML = '<div style="padding:40px;color:var(--dim)">Loading...</div>';
+  try {
+    if (tab === 'projects') await renderProjects(m);
+    else if (tab === 'tools') await renderTools(m);
+    else if (tab === 'workflows') renderWorkflows(m);
+    else if (tab === 'memory') await renderMemory(m);
+  } catch(e) {
+    m.innerHTML = `<div style="padding:40px;color:var(--red)">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Projects ──────────────────────────────────────────────────────
+
+let selectedProject = null;
+
+async function renderProjects(m) {
+  const data = await get('/api/projects');
+  m.innerHTML = `<div class="panel">
+    <div class="col-left">
+      <div class="toolbar"><h2>Projects</h2><span class="spacer"></span><button onclick="showOnboardModal()">+ New</button></div>
+      <div id="project-list">${data.projects.map(p => `
+        <div class="card" data-slug="${p.slug}" onclick="selectProject('${p.slug}')">
+          <div class="title">${p.slug}</div>
+          <div class="sub"><span class="state-dot ${p.valid?'ok':'warn'}"></span>${p.valid?'valid':'issues'}</div>
+        </div>
+      `).join('') || '<div class="sub" style="padding:16px">No projects found. Click + New to onboard one.</div>'}</div>
+    </div>
+    <div class="col-right" id="project-detail"><div style="color:var(--dim);padding:40px">Select a project</div></div>
+  </div>`;
+  if (selectedProject) selectProject(selectedProject);
+}
+
+async function selectProject(slug) {
+  selectedProject = slug;
+  document.querySelectorAll('#project-list .card').forEach(c => c.classList.remove('active'));
+  document.querySelector(`#project-list .card[data-slug="${slug}"]`)?.classList.add('active');
+  const detail = document.getElementById('project-detail');
+  try {
+    const d = await get(`/api/projects/${slug}`);
+    const v = d.validation || {};
+    detail.innerHTML = `<h2>${slug}</h2>
+      <div style="margin-bottom:16px">${Object.entries(v.checks||{}).map(([k,s])=>`<span class="badge ${s==='ok'?'ok':s.startsWith('missing')?'warn':'err'}">${k}: ${s}</span> `).join('')}</div>
+      ${v.issues?.length ? `<div style="margin-bottom:12px;font-size:13px;color:var(--yellow)">${v.issues.map(i=>'⚠ '+i).join('<br>')}</div>` : ''}
+      <h3>Files</h3>
+      ${(d.files||[]).map(f => `<div style="margin-bottom:12px"><strong style="font-size:12px;color:var(--accent)">${f.name}</strong><pre class="json">${esc(f.preview)}</pre></div>`).join('')}
+      ${d.playbook ? `<h3>Playbook</h3><pre class="json">${esc(JSON.stringify(d.playbook,null,2))}</pre>` : ''}
+      ${d['business-card'] ? `<h3>Business Card</h3><pre class="json">${esc(JSON.stringify(d['business-card'],null,2))}</pre>` : ''}
+    `;
+  } catch(e) {
+    detail.innerHTML = `<div style="color:var(--red)">${e.message}</div>`;
+  }
+}
+
+function showOnboardModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <h2>New Project</h2>
+    <label>Project slug (kebab-case)</label><input id="onb-slug" placeholder="my-app">
+    <label>One-sentence summary</label><input id="onb-summary" placeholder="Describe the project...">
+    <label>Project type</label><select id="onb-type"><option value="">(none)</option></select>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="danger" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+      <button id="onb-submit">Create</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target===overlay) overlay.remove(); });
+  // load types
+  get('/api/project-types').then(d => {
+    const sel = document.getElementById('onb-type');
+    (d.project_types||[]).forEach(t => { const o=document.createElement('option'); o.value=t.name; o.textContent=t.name; sel.appendChild(o); });
+  }).catch(()=>{});
+  document.getElementById('onb-submit').addEventListener('click', async () => {
+    const btn = document.getElementById('onb-submit');
+    btn.textContent = 'Creating...'; btn.disabled = true;
+    try {
+      await post('/api/projects', {
+        project: document.getElementById('onb-slug').value,
+        summary: document.getElementById('onb-summary').value,
+        project_type: document.getElementById('onb-type').value || null,
+      });
+      overlay.remove();
+      selectedProject = document.getElementById('onb-slug').value;
+      await loadTab('projects');
+    } catch(e) {
+      alert('Error: ' + e.message);
+      btn.textContent = 'Create'; btn.disabled = false;
+    }
+  });
+}
+
+// ── Tools ──────────────────────────────────────────────────────────
+
+let selectedTool = null;
+
+async function renderTools(m) {
+  const data = await get('/api/tools');
+  m.innerHTML = `<div class="panel">
+    <div class="col-left">
+      <h2>Tools</h2>
+      <div id="tool-list">${(data.tools||[]).map(t => `
+        <div class="card" data-tool="${t.name}" onclick="selectTool('${t.name}')">
+          <div class="title">${t.name}</div>
+          <div class="sub">${t.description.slice(0,80)}...</div>
+        </div>
+      `).join('')}</div>
+    </div>
+    <div class="col-right" id="tool-detail"><div style="color:var(--dim);padding:40px">Select a tool</div></div>
+  </div>`;
+  if (selectedTool) selectTool(selectedTool);
+}
+
+function selectTool(name) {
+  selectedTool = name;
+  get('/api/tools').then(data => {
+    const t = (data.tools||[]).find(x=>x.name===name);
+    if (!t) return;
+    document.querySelectorAll('#tool-list .card').forEach(c => c.classList.remove('active'));
+    document.querySelector(`#tool-list .card[data-tool="${name}"]`)?.classList.add('active');
+    const detail = document.getElementById('tool-detail');
+    const fields = Object.entries(t.inputSchema?.properties||{});
+    detail.innerHTML = `<h2>${t.name}</h2><p style="color:var(--dim);margin-bottom:16px">${t.description}</p>
+      <h3>Arguments</h3>
+      <div id="tool-form">${fields.map(([k,s]) => `
+        <label>${k} ${t.inputSchema.required?.includes(k)?'*':''} — <span style="font-weight:400;color:var(--dim)">${s.description||s.type}</span></label>
+        ${s.type==='boolean' ? `<select id="arg-${k}"><option value="">(default)</option><option value="true">true</option><option value="false">false</option></select>` :
+          s.type==='integer'||s.type==='number' ? `<input id="arg-${k}" type="number" placeholder="${s.description||''}">` :
+          `<input id="arg-${k}" placeholder="${s.description||''}">`}
+      `).join('')}</div>
+      <div style="margin-top:12px"><button onclick="invokeTool('${t.name}',${JSON.stringify(fields.map(([k])=>k))})">Invoke</button></div>
+      <div id="tool-result" style="margin-top:16px"></div>
+      <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--dim)">outputSchema</summary><pre class="json">${esc(JSON.stringify(t.outputSchema,null,2))}</pre></details>
+    `;
+  });
+}
+
+async function invokeTool(name, fieldKeys) {
+  const args = {};
+  for (const k of fieldKeys) {
+    const el = document.getElementById('arg-'+k);
+    if (!el) continue;
+    const v = el.value.trim();
+    if (v === '') continue;
+    if (el.type === 'number') { args[k] = Number(v); continue; }
+    if (el.tagName === 'SELECT') {
+      if (v === 'true') { args[k] = true; continue; }
+      if (v === 'false') { args[k] = false; continue; }
+      continue;
+    }
+    args[k] = v;
+  }
+  const resultDiv = document.getElementById('tool-result');
+  resultDiv.innerHTML = '<span style="color:var(--dim)">Running...</span>';
+  try {
+    const r = await post(`/api/tools/${name}/call`, args);
+    resultDiv.innerHTML = `<h3>Result</h3><pre class="json">${esc(JSON.stringify(r,null,2))}</pre>`;
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+// ── Workflows ──────────────────────────────────────────────────────
+
+const WORKFLOW_PRESETS = {
+  '2-step sequential': {
+    project:'example-wxapp',task_slug:'demo',
+    steps:[
+      {id:'search',tool:'search_memory',args:{project:'example-wxapp',query:'cart'}},
+      {id:'validate',tool:'validate_project',args:{project:'example-wxapp'},depends_on:['search']}
+    ]
+  },
+  'Diamond (fan-out)': {
+    project:'example-wxapp',task_slug:'demo-diamond',
+    steps:[
+      {id:'search',tool:'search_memory',args:{project:'example-wxapp',query:'cart'}},
+      {id:'check1',tool:'validate_project',args:{project:'example-wxapp'},depends_on:['search']},
+      {id:'check2',tool:'list_project_types',args:{},depends_on:['search']},
+      {id:'final',tool:'search_memory',args:{project:'example-wxapp',query:'cart'},depends_on:['check1','check2']}
+    ]
+  },
+};
+
+function renderWorkflows(m) {
+  m.innerHTML = `<h2>Workflows</h2>
+    <div class="toolbar">
+      <label style="margin:0">Presets:</label>
+      ${Object.keys(WORKFLOW_PRESETS).map(k => `<button style="background:var(--surface);color:var(--text);border:1px solid var(--border)" onclick="loadPreset('${k}')">${k}</button>`).join('')}
+    </div>
+    <label>Workflow definition (JSON)</label>
+    <textarea id="wf-def" style="height:200px;font-family:monospace;font-size:12px">${esc(JSON.stringify(WORKFLOW_PRESETS['2-step sequential'],null,2))}</textarea>
+    <div style="margin-top:12px"><button id="wf-run">Run Workflow</button></div>
+    <div id="wf-result" style="margin-top:16px"></div>
+  `;
+  document.getElementById('wf-run').addEventListener('click', runWorkflow);
+}
+
+function loadPreset(key) {
+  document.getElementById('wf-def').value = JSON.stringify(WORKFLOW_PRESETS[key], null, 2);
+}
+
+async function runWorkflow() {
+  const btn = document.getElementById('wf-run');
+  btn.textContent = 'Running...'; btn.disabled = true;
+  const resultDiv = document.getElementById('wf-result');
+  resultDiv.innerHTML = '<span style="color:var(--dim)">Running workflow...</span>';
+  try {
+    const def = JSON.parse(document.getElementById('wf-def').value);
+    const r = await post('/api/workflows/run', def);
+    resultDiv.innerHTML = `<h3>Result — <span class="badge ${r.aggregate_state==='completed'?'ok':'err'}">${r.aggregate_state}</span> <span style="font-size:12px;color:var(--dim)">${r.total_elapsed_ms}ms</span></h3>
+      ${(r.steps||[]).map(s => `
+        <div class="step-card ${s.state}">
+          <div class="step-header"><strong>${s.id}</strong> <span><span class="badge ${s.state==='completed'?'ok':s.state==='failed'?'err':'warn'}">${s.state}</span> ${s.elapsed_ms}ms · ${s.attempts} attempt${s.attempts>1?'s':''}</span></div>
+          <div class="step-body"><pre class="json">${esc(JSON.stringify(s.output,null,2)).slice(0,800)}</pre></div>
+        </div>
+      `).join('')}
+    `;
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+  btn.textContent = 'Run Workflow'; btn.disabled = false;
+}
+
+// ── Memory ─────────────────────────────────────────────────────────
+
+async function renderMemory(m) {
+  const [patterns, rules] = await Promise.all([
+    get('/api/memory/patterns').catch(()=>({patterns:[]})),
+    get('/api/memory/rules').catch(()=>({rules:[]})),
+  ]);
+  m.innerHTML = `<div class="panel">
+    <div class="col-left">
+      <h2>Memory</h2>
+      <label>Search</label><input id="mem-query" placeholder="search terms..." onkeydown="if(event.key==='Enter')searchMemory()">
+      <select id="mem-project" style="margin-top:8px"><option value="">All projects</option></select>
+      <button style="margin-top:8px;width:100%" onclick="searchMemory()">Search</button>
+      <h3 style="margin-top:16px">Patterns</h3>
+      <div style="font-size:12px">${patterns.patterns.map(p=>`<div class="card" style="cursor:default"><div class="title">${p.title}</div><div class="sub">${p.name}</div></div>`).join('')||'<div class="sub">None</div>'}</div>
+      <h3 style="margin-top:16px">Rules</h3>
+      <div style="font-size:12px">${rules.rules.map(r=>`<div class="card" style="cursor:default"><div class="title">${r.title}</div><div class="sub">${r.name}</div></div>`).join('')||'<div class="sub">None</div>'}</div>
+    </div>
+    <div class="col-right" id="memory-results"><div style="color:var(--dim);padding:40px">Search memory to see results</div></div>
+  </div>`;
+  // load project list for dropdown
+  get('/api/projects').then(d => {
+    const sel = document.getElementById('mem-project');
+    (d.projects||[]).forEach(p => { const o=document.createElement('option'); o.value=p.slug; o.textContent=p.slug; sel.appendChild(o); });
+  }).catch(()=>{});
+}
+
+async function searchMemory() {
+  const query = document.getElementById('mem-query').value;
+  const project = document.getElementById('mem-project').value;
+  if (!query && !project) return;
+  const resultDiv = document.getElementById('memory-results');
+  resultDiv.innerHTML = '<span style="color:var(--dim)">Searching...</span>';
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (project) params.set('project', project);
+    const r = await get('/api/memory?'+params.toString());
+    resultDiv.innerHTML = `<h2>Results for "${query||project}"</h2>
+      ${r.project_cards?.length ? `<h3>Projects (${r.project_cards.length})</h3>${r.project_cards.map(c=>`<div class="card"><div class="title">${c.slug}</div><div class="sub">${c.summary||''}</div></div>`).join('')}` : ''}
+      ${r.recent_cases?.length ? `<h3>Recent Cases (${r.recent_cases.length})</h3>`+r.recent_cases.map(c=>`<div class="card"><div class="sub">${typeof c==='string'?c:c.slug||''}</div></div>`).join('') : ''}
+      ${r.matched_patterns?.length ? `<h3>Matched Patterns</h3>`+r.matched_patterns.map(p=>`<div class="card"><div class="title">${p.slug||p.path||p}</div></div>`).join('') : ''}
+      ${r.matched_rules?.length ? `<h3>Matched Rules</h3>`+r.matched_rules.map(p=>`<div class="card"><div class="title">${p.slug||p.path||p}</div></div>`).join('') : ''}
+      ${!r.project_cards?.length&&!r.recent_cases?.length&&!r.matched_patterns?.length&&!r.matched_rules?.length ? '<div class="sub">No results.</div>' : ''}
+    `;
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+// ── helpers ────────────────────────────────────────────────────────
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── init ───────────────────────────────────────────────────────────
+
+loadTab('projects');
+</script>
+</body>
+</html>
