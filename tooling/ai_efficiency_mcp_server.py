@@ -338,6 +338,30 @@ def write_jsonl_responses(*, server: AiEfficiencyMcpServer, lines: list[str], st
         stdout_path.write_text(output, encoding="utf-8")
 
 
+def _serve_stdio(server: "AiEfficiencyMcpServer") -> None:
+    """Live MCP stdio loop: answer each JSON-RPC request as it arrives.
+
+    Reads one line at a time and flushes each response immediately. A long-lived
+    stdio connection never sends EOF, so the batch path (which blocks until EOF)
+    would hang and the client's startup handshake would time out.
+    """
+    while True:
+        line = sys.stdin.readline()
+        if not line:  # EOF — client closed the connection
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            request = json.loads(stripped)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        response = server.handle_request(request)
+        if response is not None:
+            sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the AI efficiency system MCP server over JSONL stdio.")
     parser.add_argument("--system-root", default=str(Path(__file__).resolve().parent.parent))
@@ -352,9 +376,16 @@ def main(argv: list[str] | None = None) -> int:
         vault_root=Path(args.vault_root) if args.vault_root else None,
         skills_dest_root=Path(args.skills_dest_root) if args.skills_dest_root else None,
     )
-    input_lines = Path(args.input).read_text(encoding="utf-8").splitlines() if args.input else sys.stdin
-    output_path = Path(args.output) if args.output else None
-    write_jsonl_responses(server=server, lines=list(input_lines), stdout_path=output_path)
+
+    # File replay (tests): batch-read the whole input, then write all responses.
+    if args.input:
+        input_lines = Path(args.input).read_text(encoding="utf-8").splitlines()
+        output_path = Path(args.output) if args.output else None
+        write_jsonl_responses(server=server, lines=input_lines, stdout_path=output_path)
+        return 0
+
+    # Live MCP stdio connection (Codex/Claude): stream request-by-request.
+    _serve_stdio(server)
     return 0
 
 
