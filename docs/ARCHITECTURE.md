@@ -119,6 +119,32 @@ can validate readiness before work starts:
 After onboarding (✅ all checks), the project is ready for memory-read-first
 task work through `build_task_package`.
 
+## Orchestration Runtime
+
+Maestro includes a deterministic workflow engine (`tooling/workflow_engine.py`)
+that executes multi-step tool pipelines without calling any LLM:
+
+- **Workflow definition** — a JSON step DAG with `id`, `tool`, `args`,
+  `depends_on` (dependency list), optional `verify` (gate condition), and
+  `retry` (max_attempts).
+- **State machine** (`tooling/workflow_state.py`) — each step tracks a proper
+  lifecycle (pending → in_progress → verifying → completed | failed; retry
+  loops back). The engine enforces valid transitions; aggregate workflow state
+  is computed from step states.
+- **Deterministic execution** — the engine resolves the DAG, runs independent
+  steps in parallel (`concurrent.futures`), and dispatches every step through
+  `server.invoke()` (the same canonical path as MCP and adapters). Failed steps
+  block dependents; retries re-enter the pool.
+- **Built-in verbs** — `fan_out` runs an array of tool calls in parallel;
+  `gate_check` with conditions (`always_pass`, `always_fail`, `no_error`,
+  `output_not_empty`) gates step progression.
+- **MCP tools** — `run_workflow` and `get_workflow_status` are exposed so any
+  connected model can trigger and monitor workflows.
+
+The workflow engine is how Maestro graduates from "toolbox" to "autopilot":
+steps, ordering, parallelism, and lifecycle are deterministic infrastructure,
+and the LLM supplies the intelligence (what steps, in what order).
+
 ## Extending Maestro
 
 - **New project type:** add a folder under `project-types/`.

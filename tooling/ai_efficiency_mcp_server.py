@@ -16,6 +16,7 @@ from task_package_builder import build_task_package
 from tool_registry import TOOL_SPECS
 from update_task_run_state import update_task_run_state
 from validate_project import validate_project
+from workflow_engine import WorkflowEngine
 from writeback_and_sync_memory import writeback_and_sync_memory
 
 
@@ -53,6 +54,8 @@ class AiEfficiencyMcpServer:
             "doctor_local_skills": self._call_doctor_local_skills,
             "validate_project": self._call_validate_project,
             "list_project_types": self._call_list_project_types,
+            "run_workflow": self._call_run_workflow,
+            "get_workflow_status": self._call_get_workflow_status,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -195,6 +198,27 @@ class AiEfficiencyMcpServer:
 
     def _call_list_project_types(self, arguments: JsonDict) -> JsonDict:  # noqa: ARG002
         return {"project_types": list_project_types(self.system_root)}
+
+    def _call_run_workflow(self, arguments: JsonDict) -> JsonDict:
+        engine = WorkflowEngine(self)
+        definition = _as_dict(arguments.get("definition", {}), "definition")
+        return engine.run(definition)
+
+    def _call_get_workflow_status(self, arguments: JsonDict) -> JsonDict:
+        runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
+        project = _required_string(arguments, "project")
+        task_slug = _required_string(arguments, "task_slug")
+        status_path = runtime_root / "task-runs" / project / task_slug / "status.json"
+        if not status_path.exists():
+            return {
+                "project": project,
+                "task_slug": task_slug,
+                "state": "unknown",
+                "updated_at": "",
+                "history": [],
+            }
+        import json
+        return json.loads(status_path.read_text(encoding="utf-8"))
 
 
 def _tool_definitions() -> list[JsonDict]:

@@ -17,6 +17,8 @@ EXPECTED_TOOLS = [
     "doctor_local_skills",
     "validate_project",
     "list_project_types",
+    "run_workflow",
+    "get_workflow_status",
 ]
 
 

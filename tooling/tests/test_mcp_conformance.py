@@ -18,6 +18,8 @@ EXPECTED_TOOLS = [
     "doctor_local_skills",
     "validate_project",
     "list_project_types",
+    "run_workflow",
+    "get_workflow_status",
 ]
 
 NOTE_BODY = (
@@ -147,6 +149,17 @@ class McpToolContractConformanceTests(unittest.TestCase):
                 "doctor_local_skills": {"dest_root": str(root / "skills-dest")},
                 "validate_project": {"project": "alpha"},
                 "list_project_types": {},
+                "run_workflow": {
+                    "definition": {
+                        "project": "alpha",
+                        "task_slug": "conformance-test",
+                        "steps": [
+                            {"id": "s1", "tool": "search_memory", "args": {"project": "alpha", "query": "alpha"}},
+                            {"id": "s2", "tool": "validate_project", "args": {"project": "alpha"}},
+                        ],
+                    }
+                },
+                "get_workflow_status": {"project": "alpha", "task_slug": "conformance-test"},
             }
 
             for name in EXPECTED_TOOLS:

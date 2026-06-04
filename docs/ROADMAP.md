@@ -68,10 +68,21 @@ tasks.
   core code.
 - Next: orchestration runtime (Phase 4)
 
-### Phase 4 — Orchestration runtime
-- Deterministic multi-step orchestration (plan → execute → verify → write back)
-- Parallel fan-out for independent subtasks, with verification gates
-- Lifecycle state, retries, and closeout as first-class concepts
+### Phase 4 — Orchestration runtime ✅
+- ✅ `tooling/workflow_state.py`: proper lifecycle state machine
+  (pending→in_progress→verifying→completed|failed; retry loop) with validated
+  transitions and aggregate state computation
+- ✅ `tooling/workflow_engine.py`: deterministic DAG executor — resolves
+  dependencies, runs independent steps in parallel (concurrent.futures),
+  dispatches through `server.invoke()`, blocks dependents on failure, retries
+  with configurable max_attempts
+- ✅ Built-in orchestration verbs: `fan_out` (parallel tool array), `gate_check`
+  (verification conditions: always_pass, always_fail, no_error, output_not_empty)
+- ✅ 2 new MCP tools (`run_workflow`, `get_workflow_status`) with full
+  inputSchema/outputSchema; conformance-tested
+- ✅ 130 tests all green; preflight clean
+- Multi-step pipelines run deterministically — the engine is infrastructure,
+  the LLM supplies the intelligence. Next: product surface (Phase 5)
 
 ### Phase 5 — Product surface
 - Service/web packaging, multi-tenant isolation, observability

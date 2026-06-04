@@ -230,6 +230,60 @@ TOOL_SPECS: list[JsonDict] = [
             "additionalProperties": False,
         },
     ),
+    _tool_schema(
+        "run_workflow",
+        "Run Workflow",
+        "Execute a workflow definition: resolve the step DAG, run steps in dependency order with parallel fan-out, track lifecycle state, and return per-step results.",
+        {
+            "definition": {"type": "object", "description": "Workflow definition with project, task_slug, and steps (each with id, tool, args, optional depends_on, retry, verify)."},
+        },
+        required=["definition"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string"},
+                "task_slug": {"type": "string"},
+                "aggregate_state": {"type": "string"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "state": {"type": "string"},
+                            "elapsed_ms": {"type": "number"},
+                            "attempts": {"type": "integer"},
+                        },
+                    },
+                },
+                "total_elapsed_ms": {"type": "number"},
+            },
+            "required": ["project", "task_slug", "aggregate_state", "steps", "total_elapsed_ms"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "get_workflow_status",
+        "Get Workflow Status",
+        "Query the status of a workflow by project and task_slug.",
+        {
+            "project": {"type": "string", "description": "Project slug."},
+            "task_slug": {"type": "string", "description": "Task-run slug."},
+        },
+        required=["project", "task_slug"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string"},
+                "task_slug": {"type": "string"},
+                "state": {"type": "string"},
+                "updated_at": {"type": "string"},
+                "history": {"type": "array"},
+            },
+            "required": ["project", "task_slug"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
