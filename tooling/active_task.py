@@ -22,12 +22,27 @@ ENV_RUNTIME_ROOT = "AI_EFF_RUNTIME_ROOT"
 
 
 def resolve_runtime_root(explicit: Path | None = None) -> Path:
-    """Resolve the runtime root: explicit arg > env var > cwd/runtime."""
+    """Resolve the runtime root.
+
+    Priority:
+      1. explicit arg
+      2. AI_EFF_RUNTIME_ROOT env var
+      3. Maestro repo root inferred from THIS module's location (tooling/ ->
+         repo root -> runtime/). This is correct even when invoked as a hook
+         from inside a *business project* directory, where cwd is the business
+         project, not the Maestro repo.
+      4. cwd/runtime (last-resort fallback)
+    """
     if explicit is not None:
         return Path(explicit)
     env = os.environ.get(ENV_RUNTIME_ROOT)
     if env:
         return Path(env)
+    # active_task.py lives in <repo>/tooling/, so parent.parent is the repo root.
+    repo_root = Path(__file__).resolve().parent.parent
+    candidate = repo_root / "runtime"
+    if candidate.exists() or (repo_root / "tooling").is_dir():
+        return candidate
     return Path.cwd() / "runtime"
 
 

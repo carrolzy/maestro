@@ -120,6 +120,31 @@ tasks.
   gets full context → continues exactly where Codex left off.
   No dead loops, no memory corruption, no semantic drift.
 
+### P0 — Forced checkpoints via PostToolUse hooks ✅
+- ✅ `tooling/active_task.py`: active-task pointer (cross-process fcntl lock)
+  bridges "which file was edited" → "which task it belongs to". Runtime root is
+  anchored to the Maestro repo from the script's own location, so edits made
+  from inside a *business project* still record to the central store.
+- ✅ `tooling/hooks/checkpoint_hook.py`: runtime-agnostic PostToolUse hook.
+  Loosely matches edit tools and extracts the file path across both **Claude**
+  (`Edit`/`Write`, `tool_input.file_path`) and **Codex** (`apply_patch`, body in
+  `tool_input.command` — parsed from the `*** Update/Add File:` envelope; also
+  `tool_input.input`/`path` for other runtimes). Always exits 0 — never blocks
+  an edit. `AI_EFF_HOOK_DEBUG=1` dumps raw payloads.
+- ✅ Session-merge: consecutive same-session edits collapse into one `auto-edit`
+  checkpoint (sealed once an explicit checkpoint lands after it) — no explosion.
+- ✅ `set_active_task` MCP tool (13 tools now); `build_task_package` auto-sets
+  the pointer. Both `bin/setup-claude.sh` (JSON, `command` as array) and
+  `bin/setup-codex.sh` (TOML, `command` as a single shell string, matcher
+  `apply_patch|Edit|Write`) register the hook automatically. Codex requires a
+  one-time `/hooks` trust of the new hook before it fires.
+- ✅ 23 checkpoint/hook tests (incl. Codex `apply_patch` via `tool_input.command`
+  and the legacy `input` field, `edit_file`/`write_file`/`shell` payloads); 185
+  tests total, all green; generated Codex inline-hook TOML validated.
+- Checkpoints are now **forced**, not left to model discretion — the handoff
+  chain never breaks even if an agent forgets to checkpoint. Works **both
+  directions**: Codex↔Claude.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.

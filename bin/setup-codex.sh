@@ -119,9 +119,41 @@ approval_mode = "approve"
 
 [mcp_servers.maestro.tools.handoff_task]
 approval_mode = "approve"
+
+[mcp_servers.maestro.tools.set_active_task]
+approval_mode = "approve"
 MCPEOF
 
   echo "✅  Maestro MCP server added to $CODEX_CONFIG"
+fi
+
+# ── 3.5 Register the forced-checkpoint PostToolUse hook ────────────
+
+if [ -f "$CODEX_CONFIG" ] && grep -qF "checkpoint_hook.py" "$CODEX_CONFIG"; then
+  echo ""
+  echo "⏭   Checkpoint hook already registered — skipping."
+else
+  echo ""
+  echo "🪝  Registering checkpoint hook in Codex config..."
+  cat >> "$CODEX_CONFIG" <<HOOKEOF
+
+# ── Maestro checkpoint hook (added by bin/setup-codex.sh) ──
+# Auto-records every file edit to a checkpoint so a crashed/interrupted
+# Codex session can be resumed by Claude (or vice versa).
+# Codex inline-hook schema: matcher filters tool_name (apply_patch fires for
+# file edits and also matches Edit/Write); 'command' is a single shell string.
+[[hooks.PostToolUse]]
+matcher = "apply_patch|Edit|Write"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = '$PYTHON "$ROOT_DIR/tooling/hooks/checkpoint_hook.py"'
+timeout = 10
+statusMessage = "Recording checkpoint"
+HOOKEOF
+  echo "✅  Checkpoint hook registered (fires after every file edit, records it)"
+  echo "    ⚠️  Codex requires you to TRUST new hooks: run /hooks in Codex once,"
+  echo "        review the Maestro checkpoint hook, and trust it."
 fi
 
 # ── 4. Trust the Maestro project directory ─────────────────────────
@@ -178,9 +210,10 @@ echo "🎉  Maestro is ready for Codex!"
 echo ""
 echo "   Next steps:"
 echo "   1. Restart Codex (or open a new session)"
-echo "   2. Codex now has 14 Maestro MCP tools (auto-approved)"
-echo "   3. Say: 'list my projects' or 'onboard a new project'"
-echo "   4. Start the dashboard: bin/dashboard.sh"
+echo "   2. Run /hooks in Codex and trust the Maestro checkpoint hook"
+echo "   3. Codex now has 14 Maestro MCP tools (auto-approved)"
+echo "   4. Say: 'list my projects' or 'onboard a new project'"
+echo "   5. Start the dashboard: bin/dashboard.sh"
 echo ""
 echo "   Skills:   ~/.codex/skills/"
 echo "   MCP:      ~/.codex/config.toml  [mcp_servers.maestro]"

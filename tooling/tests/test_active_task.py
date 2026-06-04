@@ -159,6 +159,80 @@ class HookScriptTests(unittest.TestCase):
         cps = list_checkpoints(self.runtime, "app", "t1")
         self.assertEqual(len(cps), 1)
 
+    # ── Codex-style payloads (different tool names + field layout) ──
+
+    def test_codex_edit_file_with_path_field(self) -> None:
+        set_active_task(self.runtime, "app", "t1", "codex")
+        rc = self._run_hook({"tool_name": "edit_file", "tool_input": {"path": "src/a.js"}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        cps = list_checkpoints(self.runtime, "app", "t1")
+        self.assertEqual(len(cps), 1)
+        self.assertIn("src/a.js", cps[0].files_modified)
+
+    def test_codex_write_file(self) -> None:
+        set_active_task(self.runtime, "app", "t1", "codex")
+        rc = self._run_hook({"tool_name": "write_file", "tool_input": {"path": "b.ts"}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(list_checkpoints(self.runtime, "app", "t1")), 1)
+
+    def test_codex_apply_patch_extracts_path(self) -> None:
+        # Real Codex puts the apply_patch body in tool_input.command.
+        set_active_task(self.runtime, "app", "t1", "codex")
+        patch = "*** Begin Patch\n*** Update File: lib/util.py\n@@\n-x\n+y\n*** End Patch"
+        rc = self._run_hook({"tool_name": "apply_patch", "tool_input": {"command": patch}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        cps = list_checkpoints(self.runtime, "app", "t1")
+        self.assertEqual(len(cps), 1)
+        self.assertIn("lib/util.py", cps[0].files_modified)
+
+    def test_codex_apply_patch_legacy_input_field(self) -> None:
+        # Other runtimes may carry the patch body in tool_input.input.
+        set_active_task(self.runtime, "app", "t1", "codex")
+        patch = "*** Begin Patch\n*** Add File: lib/new.py\n@@\n+z\n*** End Patch"
+        rc = self._run_hook({"tool_name": "apply_patch", "tool_input": {"input": patch}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        cps = list_checkpoints(self.runtime, "app", "t1")
+        self.assertEqual(len(cps), 1)
+        self.assertIn("lib/new.py", cps[0].files_modified)
+
+    def test_codex_shell_tool_ignored(self) -> None:
+        set_active_task(self.runtime, "app", "t1", "codex")
+        rc = self._run_hook({"tool_name": "shell", "tool_input": {"command": "ls"}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        self.assertEqual(list_checkpoints(self.runtime, "app", "t1"), [])
+
+    def test_alt_tool_field_name(self) -> None:
+        # Some runtimes use "tool" instead of "tool_name"
+        set_active_task(self.runtime, "app", "t1", "codex")
+        rc = self._run_hook({"tool": "edit_file", "input": {"path": "c.go"}, "session_id": "c1"})
+        self.assertEqual(rc, 0)
+        cps = list_checkpoints(self.runtime, "app", "t1")
+        self.assertEqual(len(cps), 1)
+        self.assertIn("c.go", cps[0].files_modified)
+
+
+class PathExtractionUnitTests(unittest.TestCase):
+    """Direct unit tests for the hook's path-extraction helpers."""
+
+    def test_parse_apply_patch_path(self) -> None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("checkpoint_hook", HOOK_SCRIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        self.assertEqual(mod._parse_patch_path("*** Update File: a/b.py\n@@"), "a/b.py")
+        self.assertEqual(mod._parse_patch_path("+++ b/src/x.js\n"), "src/x.js")
+        self.assertEqual(mod._parse_patch_path("no path here"), "")
+
+    def test_is_edit_tool(self) -> None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("checkpoint_hook", HOOK_SCRIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for name in ("Edit", "Write", "MultiEdit", "edit_file", "write_file", "apply_patch", "create_file"):
+            self.assertTrue(mod._is_edit_tool(name), name)
+        for name in ("Read", "Grep", "search_files", "list_dir", "shell", "Bash"):
+            self.assertFalse(mod._is_edit_tool(name), name)
+
 
 if __name__ == "__main__":
     unittest.main()
