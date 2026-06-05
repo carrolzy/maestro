@@ -342,7 +342,7 @@ TOOL_SPECS: list[JsonDict] = [
     _tool_schema(
         "set_active_task",
         "Set Active Task",
-        "Set the active-task pointer so the PostToolUse checkpoint hook can attribute file edits to this task. Call this when you start working on a task.",
+        "Set the active-task pointer so the PostToolUse checkpoint hook can attribute file edits to this task. Call this when you start working on a task. Automatically snapshots the previous task's changed files before switching.",
         {
             "project": {"type": "string", "description": "Project slug."},
             "task_slug": {"type": "string", "description": "Task-run slug."},
@@ -356,6 +356,7 @@ TOOL_SPECS: list[JsonDict] = [
                 "task_slug": {"type": "string"},
                 "agent": {"type": "string"},
                 "pointer_path": {"type": "string"},
+                "previous_task_snapshotted": {"type": "boolean", "description": "True if a previous active task had its changes snapshotted before switching."},
             },
             "required": ["project", "task_slug", "agent", "pointer_path"],
             "additionalProperties": False,

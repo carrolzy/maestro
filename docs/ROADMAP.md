@@ -152,8 +152,11 @@ tasks.
   #16732 / #21639). The hook config is kept ready for the day Codex fires it.
 - ✅ **`snapshot_task` MCP tool** (14 tools now): runtime-independent git-based
   checkpoint. Calls `git status --porcelain`, records every changed file as a
-  session-merge checkpoint. Works on Codex, Claude, or any agent — just call it
-  at the end of an editing session. No hook dependency.
+  session-merge checkpoint. Works on Codex, Claude, or any agent.
+- ✅ **Auto-snapshot embedded in `set_active_task` and `handoff_task`**: zero
+  manual steps. Switching active tasks snapshots the previous task's changes;
+  handing off snapshots the current task's changes. Codex just works — start a
+  task, edit files, hand off (or switch tasks), and all changes are captured.
 
 ## Design Principles
 

@@ -272,6 +272,9 @@ class AiEfficiencyMcpServer:
         to_agent = _required_string(arguments, "to_agent")
         note = _optional_string(arguments, "note") or ""
 
+        # Snapshot all changed files before sealing the handoff.
+        self._snapshot_now(runtime_root, project, task_slug, from_agent, summary=f"Auto-snapshot before handoff to {to_agent}")
+
         path = save_checkpoint(
             runtime_root=runtime_root,
             project=project,
@@ -307,16 +310,48 @@ class AiEfficiencyMcpServer:
         project = _required_string(arguments, "project")
         task_slug = _required_string(arguments, "task_slug")
         agent = _required_string(arguments, "agent")
+
+        # Snapshot the previous task (if any) before switching — captures its
+        # changes even if the agent forgot to hand off.
+        prev = get_active_task(runtime_root)
+        if prev and (prev["project"] != project or prev["task_slug"] != task_slug):
+            self._snapshot_now(
+                runtime_root, prev["project"], prev["task_slug"],
+                prev.get("agent", "unknown"),
+                summary=f"Auto-snapshot before switching to {project}/{task_slug}",
+            )
+
         pointer_path = set_active_task(runtime_root, project, task_slug, agent)
         return {
             "project": project,
             "task_slug": task_slug,
             "agent": agent,
             "pointer_path": str(pointer_path),
+            "previous_task_snapshotted": bool(prev and (prev["project"] != project or prev["task_slug"] != task_slug)),
         }
 
-    def _call_snapshot_task(self, arguments: JsonDict) -> JsonDict:
+    def _snapshot_now(
+        self, runtime_root: Path, project: str, task_slug: str, agent: str,
+        *, summary: str = "",
+    ) -> list[str]:
+        """Run git-changed-files on the system root and record an auto-edit checkpoint.
+
+        Returns the list of changed file paths. A no-op if system_root is not a
+        git repo (returns empty list, nothing recorded).
+        """
+        files = git_changed_files(self.system_root)
+        if not files:
+            return []
         import os as _os
+        session_id = _os.environ.get("CODEX_SESSION_ID", "auto")
+        for f in files:
+            append_to_session_checkpoint(
+                runtime_root, project, task_slug,
+                agent=agent, session_id=session_id, file_modified=f,
+            )
+        return files
+
+    def _call_snapshot_task(self, arguments: JsonDict) -> JsonDict:
         runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
         project = _optional_string(arguments, "project")
         task_slug = _optional_string(arguments, "task_slug")
@@ -338,30 +373,30 @@ class AiEfficiencyMcpServer:
             agent = "unknown"
 
         repo_root = _optional_path(arguments, "repo_root") or self.system_root
-        files = git_changed_files(repo_root)
-        summary = _optional_string(arguments, "summary") or (
-            f"snapshot: {len(files)} changed file(s) in {repo_root}"
-        )
+        summary = _optional_string(arguments, "summary") or ""
 
-        # Record each changed file to a single session-merge checkpoint. Use a
-        # synthetic session_id so the snapshot stands alone (never merges into a
-        # previous auto-edit from the hook).
+        # Use _snapshot_now for the fast path when repo_root == system_root.
+        if repo_root == self.system_root:
+            files = self._snapshot_now(runtime_root, project, task_slug, agent, summary=summary)
+        else:
+            files = git_changed_files(repo_root)
+            if files:
+                import os as _os2
+                sid = _os2.environ.get("CODEX_SESSION_ID", "snapshot")
+                for f in files:
+                    append_to_session_checkpoint(
+                        runtime_root, project, task_slug,
+                        agent=agent, session_id=sid, file_modified=f,
+                    )
+
         checkpoint_path: Path | None = None
-        session_id = _os.environ.get("CODEX_SESSION_ID", "snapshot")
-        for f in files:
-            checkpoint_path = append_to_session_checkpoint(
-                runtime_root, project, task_slug,
-                agent=agent, session_id=session_id, file_modified=f,
-            )
-
         if not files:
-            # Still record a snapshot checkpoint (zero files — the agent checked
-            # and there's nothing, which IS information for the resumer).
             checkpoint_path = save_checkpoint(
                 runtime_root, project, task_slug,
                 checkpoint=Checkpoint(
                     agent=agent, step="snapshot", state="completed",
-                    summary=summary, files_modified=[],
+                    summary=summary or "snapshot: no changes",
+                    files_modified=[],
                 ),
             )
 
