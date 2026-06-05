@@ -361,6 +361,31 @@ TOOL_SPECS: list[JsonDict] = [
             "additionalProperties": False,
         },
     ),
+    _tool_schema(
+        "snapshot_task",
+        "Snapshot Task",
+        "Capture the files changed in a git repo right now and record them as a checkpoint. Use this on Codex (where the PostToolUse hook does not fire) or any time to checkpoint progress without relying on edit hooks. Defaults to the active task when project/task_slug are omitted.",
+        {
+            "repo_root": {"type": "string", "description": "Git repo to inspect for changes. Defaults to the MCP server's system root."},
+            "project": {"type": "string", "description": "Project slug. Omit to use the active-task pointer."},
+            "task_slug": {"type": "string", "description": "Task-run slug. Omit to use the active-task pointer."},
+            "agent": {"type": "string", "description": "Agent identity recording the snapshot (e.g. 'codex'). Omit to use the active-task pointer."},
+            "summary": {"type": "string", "description": "Optional human summary of what changed this session."},
+            "runtime_root": {"type": "string", "description": "Runtime root (defaults to <system>/runtime)."},
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string"},
+                "task_slug": {"type": "string"},
+                "files_modified": {"type": "array", "items": {"type": "string"}},
+                "checkpoint_path": {"type": ["string", "null"]},
+                "recorded": {"type": "boolean"},
+            },
+            "required": ["project", "task_slug", "files_modified", "recorded"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 

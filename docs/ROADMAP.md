@@ -147,6 +147,13 @@ tasks.
 - Checkpoints are now **forced**, not left to model discretion — the handoff
   chain never breaks even if an agent forgets to checkpoint. Works **both
   directions**: Codex↔Claude.
+- ⚠️  **Codex limitation** (0.135–0.137): PostToolUse hooks parse and trust but
+  the engine does not spawn them at edit time (upstream regressions #16246 /
+  #16732 / #21639). The hook config is kept ready for the day Codex fires it.
+- ✅ **`snapshot_task` MCP tool** (14 tools now): runtime-independent git-based
+  checkpoint. Calls `git status --porcelain`, records every changed file as a
+  session-merge checkpoint. Works on Codex, Claude, or any agent — just call it
+  at the end of an editing session. No hook dependency.
 
 ## Design Principles
 

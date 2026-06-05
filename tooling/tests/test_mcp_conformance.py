@@ -9,22 +9,6 @@ from ai_efficiency_mcp_server import (
 )
 from jsonschema_mini import validate
 
-EXPECTED_TOOLS = [
-    "search_memory",
-    "build_task_package",
-    "register_project",
-    "update_task_run_state",
-    "writeback_and_sync_memory",
-    "doctor_local_skills",
-    "validate_project",
-    "list_project_types",
-    "run_workflow",
-    "get_workflow_status",
-    "resume_task",
-    "handoff_task",
-    "set_active_task",
-]
-
 NOTE_BODY = (
     "# Request\n\nConformance note.\n\n"
     "## Context Used\n\n- test\n\n"
@@ -96,8 +80,9 @@ class McpToolDiscoveryConformanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             server = AiEfficiencyMcpServer(system_root=Path(tmp))
             resp = server.handle_request(_rpc("tools/list"))
+            from tool_registry import tool_names
             names = [tool["name"] for tool in resp["result"]["tools"]]
-            self.assertEqual(names, EXPECTED_TOOLS)
+            self.assertEqual(names, tool_names())
 
     def test_every_tool_declares_well_formed_input_and_output_schema(self) -> None:
         for tool in _tool_definitions():
@@ -166,9 +151,14 @@ class McpToolContractConformanceTests(unittest.TestCase):
                 "resume_task": {"project": "alpha", "task_slug": "conformance-test", "agent": "test-runner"},
                 "handoff_task": {"project": "alpha", "task_slug": "conformance-test", "from_agent": "codex", "to_agent": "claude", "note": "Network failure — please continue."},
                 "set_active_task": {"project": "alpha", "task_slug": "conformance-test", "agent": "test-runner"},
+                "snapshot_task": {
+                    "project": "alpha", "task_slug": "conformance-test", "agent": "test-runner",
+                    "repo_root": str(root),
+                },
             }
 
-            for name in EXPECTED_TOOLS:
+            from tool_registry import tool_names
+            for name in tool_names():
                 with self.subTest(tool=name):
                     result = server.call_tool(name, valid_args[name])
                     self.assertFalse(result["isError"], msg=result["content"])

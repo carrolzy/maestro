@@ -287,3 +287,112 @@ class AiEfficiencyMcpServerTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             response = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(response["id"], 8)
+
+
+class SnapshotTaskTests(unittest.TestCase):
+    """Integration tests for the snapshot_task MCP tool (git-based checkpoint)."""
+
+    def _init_git_repo(self, tmp_dir: str) -> Path:
+        import subprocess
+        repo = Path(tmp_dir) / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@maestro.local"],
+            cwd=repo, check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Maestro Test"],
+            cwd=repo, check=True,
+        )
+        return repo
+
+    def _seed_and_commit(self, repo: Path, rel: str, content: str) -> None:
+        import subprocess
+        f = repo / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(content, encoding="utf-8")
+        subprocess.run(["git", "add", rel], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "-qm", "seed"], cwd=repo, check=True)
+
+    def test_snapshot_via_mcp_tool(self) -> None:
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            repo = self._init_git_repo(tmp_dir)
+            self._seed_and_commit(repo, "a.txt", "hello")
+
+            # Make changes in the repo
+            (repo / "a.txt").write_text("modified", encoding="utf-8")
+            (repo / "b.txt").write_text("new", encoding="utf-8")
+
+            server = AiEfficiencyMcpServer(system_root=system_root)
+
+            resp = server.handle_request({
+                "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                "params": {
+                    "name": "set_active_task",
+                    "arguments": {"project": "p", "task_slug": "t1", "agent": "codex"},
+                },
+            })
+            self.assertNotIn("error", resp)
+
+            resp = server.handle_request({
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {
+                    "name": "snapshot_task",
+                    "arguments": {"repo_root": str(repo)},
+                },
+            })
+            self.assertNotIn("error", resp)
+            result = resp["result"]["content"][0]["text"]
+            parsed = json.loads(result)
+            self.assertTrue(parsed["recorded"])
+            self.assertIn("a.txt", parsed["files_modified"])
+            self.assertIn("b.txt", parsed["files_modified"])
+
+    def test_snapshot_zero_changes_still_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            repo = self._init_git_repo(tmp_dir)
+            self._seed_and_commit(repo, "readme.md", "clean")
+            server = AiEfficiencyMcpServer(system_root=system_root)
+
+            server.handle_request({
+                "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                "params": {
+                    "name": "set_active_task",
+                    "arguments": {"project": "p", "task_slug": "t2", "agent": "codex"},
+                },
+            })
+
+            resp = server.handle_request({
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {
+                    "name": "snapshot_task",
+                    "arguments": {"repo_root": str(repo)},
+                },
+            })
+            self.assertNotIn("error", resp)
+            result = resp["result"]["content"][0]["text"]
+            parsed = json.loads(result)
+            self.assertTrue(parsed["recorded"])
+            self.assertEqual(parsed["files_modified"], [])
+
+    def test_snapshot_fails_without_active_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            repo = self._init_git_repo(tmp_dir)
+            server = AiEfficiencyMcpServer(system_root=system_root)
+            resp = server.handle_request({
+                "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                "params": {
+                    "name": "snapshot_task",
+                    "arguments": {"repo_root": str(repo)},
+                },
+            })
+            # MCP wraps tool errors in structuredContent with isError: True.
+            self.assertTrue(
+                resp.get("result", {}).get("isError", False),
+                f"expected isError: true in: {resp}",
+            )

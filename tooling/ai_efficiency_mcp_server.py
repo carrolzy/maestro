@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from active_task import set_active_task
-from checkpoint import Checkpoint, build_resume_context, save_checkpoint
+from active_task import get_active_task, set_active_task
+from checkpoint import Checkpoint, append_to_session_checkpoint, build_resume_context, save_checkpoint
+from git_snapshot import git_changed_files
 from local_skills_doctor import assess_local_skills
 from project_types import list_project_types
 from register_project import register_project
@@ -61,6 +62,7 @@ class AiEfficiencyMcpServer:
             "resume_task": self._call_resume_task,
             "handoff_task": self._call_handoff_task,
             "set_active_task": self._call_set_active_task,
+            "snapshot_task": self._call_snapshot_task,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -311,6 +313,64 @@ class AiEfficiencyMcpServer:
             "task_slug": task_slug,
             "agent": agent,
             "pointer_path": str(pointer_path),
+        }
+
+    def _call_snapshot_task(self, arguments: JsonDict) -> JsonDict:
+        import os as _os
+        runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
+        project = _optional_string(arguments, "project")
+        task_slug = _optional_string(arguments, "task_slug")
+        agent = _optional_string(arguments, "agent")
+
+        # Resolve from active-task pointer when omitted.
+        if not project or not task_slug:
+            active = get_active_task(runtime_root)
+            if active:
+                project = project or active["project"]
+                task_slug = task_slug or active["task_slug"]
+                agent = agent or active.get("agent", "unknown")
+            else:
+                raise ValueError(
+                    "No project/task_slug given and no active-task pointer is set. "
+                    "Call set_active_task first, or pass project & task_slug explicitly."
+                )
+        if not agent:
+            agent = "unknown"
+
+        repo_root = _optional_path(arguments, "repo_root") or self.system_root
+        files = git_changed_files(repo_root)
+        summary = _optional_string(arguments, "summary") or (
+            f"snapshot: {len(files)} changed file(s) in {repo_root}"
+        )
+
+        # Record each changed file to a single session-merge checkpoint. Use a
+        # synthetic session_id so the snapshot stands alone (never merges into a
+        # previous auto-edit from the hook).
+        checkpoint_path: Path | None = None
+        session_id = _os.environ.get("CODEX_SESSION_ID", "snapshot")
+        for f in files:
+            checkpoint_path = append_to_session_checkpoint(
+                runtime_root, project, task_slug,
+                agent=agent, session_id=session_id, file_modified=f,
+            )
+
+        if not files:
+            # Still record a snapshot checkpoint (zero files — the agent checked
+            # and there's nothing, which IS information for the resumer).
+            checkpoint_path = save_checkpoint(
+                runtime_root, project, task_slug,
+                checkpoint=Checkpoint(
+                    agent=agent, step="snapshot", state="completed",
+                    summary=summary, files_modified=[],
+                ),
+            )
+
+        return {
+            "project": project,
+            "task_slug": task_slug,
+            "files_modified": files,
+            "recorded": True,
+            "checkpoint_path": str(checkpoint_path) if checkpoint_path else None,
         }
 
 
