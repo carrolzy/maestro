@@ -17,6 +17,10 @@
 !/memory/projects/.gitkeep
 !/memory/projects/README.md
 
+# Semantic search embedding cache — generated locally from your own memory
+# documents. Local-only (can be large; vectors mirror private memory content).
+/memory/.embedding_cache.json
+
 # Runtime artifacts (task packages, run state, perf traces) are local outputs.
 # Keep the directory placeholders, drop the contents.
 /runtime/task-packages/*

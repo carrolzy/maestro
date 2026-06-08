@@ -65,16 +65,19 @@ def _recent_case_paths(system_root: Path, project: str, limit: int = 5) -> list[
 
 
 def _match_memory_files(requirement: str, paths: list[Path], system_root: Path) -> list[str]:
-    lowered = requirement.lower()
-    tokens = [token for token in re.split(r"[^0-9a-zA-Z\u4e00-\u9fff]+", lowered) if token]
-    matches = []
-    for path in paths:
-        text = path.read_text(encoding="utf-8").lower()
-        if not tokens:
-            continue
-        if any(token in text for token in tokens):
-            matches.append(path.relative_to(system_root).as_posix())
-    return matches
+    """Score memory files against the requirement text with BM25.
+
+    Returns relative paths for files whose BM25 score exceeds a minimum
+    threshold, ranked highest-first. With no paths or an empty requirement,
+    returns an empty list.
+    """
+    if not paths or not requirement.strip():
+        return []
+    docs = [_read_optional_text(p) for p in paths]
+    from text_rank import BM25Ranker
+    ranker = BM25Ranker(docs)
+    top = ranker.top_k(requirement, k=len(paths), min_score=0.01)
+    return [paths[i].relative_to(system_root).as_posix() for i, _ in top]
 
 
 def _load_playbook(system_root: Path, project: str) -> dict:

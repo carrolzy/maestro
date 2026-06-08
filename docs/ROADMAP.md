@@ -158,6 +158,27 @@ tasks.
   handing off snapshots the current task's changes. Codex just works — start a
   task, edit files, hand off (or switch tasks), and all changes are captured.
 
+### P0 — Semantic memory search ✅
+- ✅ `tooling/text_rank.py`: pure-Python Okapi **BM25** ranker (k1=1.5, b=0.75).
+  Replaces the old token-count scoring (which gave every term equal weight and
+  ignored document length). BM25 adds term-frequency saturation, IDF (rare
+  terms carry more signal), and length normalization. On real memory data the
+  relevant doc now scores 6000×+ above an irrelevant one (token-count gave both
+  a hit).
+- ✅ **CJK bigram tokenization**: Chinese has no word spaces, so "登录按钮" used
+  to be one opaque token that only matched verbatim. The tokenizer now expands
+  CJK runs into overlapping bigrams + unigrams, so a query "登录" matches a doc
+  containing "登录按钮" — critical for the Chinese-heavy memory corpus.
+- ✅ `tooling/embedding_index.py`: optional semantic layer. Stores doc vectors
+  in `memory/.embedding_cache.json`; cosine similarity via pure-Python math (no
+  numpy). `search_memory` blends BM25 (0.7) + embedding cosine (0.3) when an
+  index + embedding API key exist; degrades cleanly to BM25-only offline.
+- ✅ `tooling/build_embedding_index.py`: stdlib-only CLI to build the index from
+  any OpenAI-compatible `/v1/embeddings` endpoint (`AI_EFF_EMBED_*` env vars).
+- ✅ `search_memory` and `task_package_builder` both route through the shared
+  BM25 engine — no more duplicated `any(token in text)` matching. 29 new tests
+  (BM25 ranking, CJK matching, cosine, index persistence); 221 total green.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.
