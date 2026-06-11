@@ -306,8 +306,9 @@ Define steps with dependencies — the engine handles the rest:
 ## Running Tests
 
 ```bash
-PYTHONPATH=tooling python3.11 -m unittest discover -s tooling/tests -p 'test_*.py'
-# 147 tests pass
+PYTHONPATH=tooling python3 -m unittest discover -s tooling/tests -p 'test_*.py'
+# 224 tests pass — requires Python 3.10+ (the default `python3` must be 3.10+,
+# not macOS's bundled 3.9; `zip(strict=True)` / PEP 604 fail on 3.9)
 ```
 
 ---

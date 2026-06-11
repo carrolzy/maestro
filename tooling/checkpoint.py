@@ -224,9 +224,23 @@ def build_resume_context(
             seen.add(f)
 
     latest = checkpoints[-1] if checkpoints else None
-    next_hint = latest.next_hint if latest else ""
+    # Prefer the last *substantive* hint. "handoff"/"resume" checkpoints carry
+    # procedural hints ("Use resume_task to pick up") that are useless to the
+    # agent now resuming — it should see the real next action (e.g. "finish
+    # cart.vue, then verify"). Fall back to the latest hint if none is found.
+    next_hint = ""
+    for cp in reversed(checkpoints):
+        if cp.step not in ("handoff", "resume") and cp.next_hint:
+            next_hint = cp.next_hint
+            break
+    if not next_hint and latest:
+        next_hint = latest.next_hint
 
-    can_resume = len(checkpoints) > 0 and last_state not in ("closed", "handed_off")
+    # Only a closed task is non-resumable. "handed_off" MUST stay resumable:
+    # handoff_task hands a task to another agent precisely so that agent can
+    # pick it up via resume_task. Excluding it here would leave the task stuck
+    # in "handed_off" and skip the resume bookkeeping in _call_resume_task.
+    can_resume = len(checkpoints) > 0 and last_state != "closed"
 
     # Build the self-contained markdown pack
     pack_lines = [
@@ -293,7 +307,7 @@ def build_resume_context(
         "files_modified": files_modified,
         "next_step_hint": next_hint,
         "recent_checkpoints": [
-            {"seq": cp.agent, "step": cp.step, "state": cp.state, "summary": cp.summary, "timestamp": cp.timestamp}
+            {"agent": cp.agent, "step": cp.step, "state": cp.state, "summary": cp.summary, "timestamp": cp.timestamp}
             for cp in (checkpoints[-5:] if checkpoints else [])
         ],
         "agent_history": history,

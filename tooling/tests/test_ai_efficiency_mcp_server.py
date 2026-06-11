@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 
 from ai_efficiency_mcp_server import AiEfficiencyMcpServer, main, write_jsonl_responses
+from checkpoint import Checkpoint, list_checkpoints, save_checkpoint
+from update_task_run_state import update_task_run_state
 
 
 def _write_project(system_root: Path, project: str, summary: str = "Project summary.") -> None:
@@ -396,3 +398,67 @@ class SnapshotTaskTests(unittest.TestCase):
                 resp.get("result", {}).get("isError", False),
                 f"expected isError: true in: {resp}",
             )
+
+
+class AtoAHandoffResumeTests(unittest.TestCase):
+    """End-to-end AtoA: agent A hands a task off, agent B resumes it.
+
+    Exercises the MCP orchestration layer (handoff_task -> resume_task) that the
+    pure-function checkpoint tests don't reach. This is the layer where a
+    handed-off task used to get stuck (resume refused to reopen it).
+    """
+
+    def _seed(self, runtime_root: Path, project: str, slug: str) -> None:
+        update_task_run_state(
+            runtime_root=runtime_root, project=project, task_slug=slug,
+            state="in_progress", agent="codex",
+        )
+        save_checkpoint(runtime_root, project, slug, Checkpoint(
+            agent="codex", step="implementation", state="in_progress",
+            summary="midway through cart.vue",
+            files_modified=["components/cart/cart.vue"],
+            next_hint="finish cart.vue, then verify",
+        ))
+
+    def _call(self, server: AiEfficiencyMcpServer, name: str, arguments: dict) -> dict:
+        resp = server.handle_request({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        })
+        self.assertNotIn("error", resp)
+        self.assertFalse(resp["result"].get("isError", False), f"tool errored: {resp}")
+        return json.loads(resp["result"]["content"][0]["text"])
+
+    def test_handoff_then_resume_reopens_and_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            runtime_root = system_root / "runtime"
+            server = AiEfficiencyMcpServer(system_root=system_root)
+            self._seed(runtime_root, "app", "t1")
+
+            handoff = self._call(server, "handoff_task", {
+                "runtime_root": str(runtime_root), "project": "app", "task_slug": "t1",
+                "from_agent": "codex", "to_agent": "claude", "note": "model unavailable",
+            })
+            self.assertEqual(handoff["state"], "handed_off")
+
+            ctx = self._call(server, "resume_task", {
+                "runtime_root": str(runtime_root), "project": "app", "task_slug": "t1",
+                "agent": "claude",
+            })
+            # Previously broken: a handed_off task reported can_resume=False,
+            # so resume_task returned the pack but never reopened the task.
+            self.assertTrue(ctx["can_resume"])
+            self.assertEqual(ctx["next_step_hint"], "finish cart.vue, then verify")
+
+            # State reopened and now owned by the resuming agent.
+            status = json.loads(
+                (runtime_root / "task-runs" / "app" / "t1" / "status.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(status["state"], "in_progress")
+            self.assertEqual(status["agent"], "claude")
+
+            # Both the handoff and the new agent's resume are on the timeline.
+            steps = [(cp.agent, cp.step) for cp in list_checkpoints(runtime_root, "app", "t1")]
+            self.assertIn(("codex", "handoff"), steps)
+            self.assertIn(("claude", "resume"), steps)

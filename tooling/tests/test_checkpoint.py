@@ -112,6 +112,32 @@ class ResumeContextTests(unittest.TestCase):
         ctx = build_resume_context(self.root, "app", "done")
         self.assertFalse(ctx["can_resume"])
 
+    def test_can_resume_handed_off_task(self) -> None:
+        """A handed-off task MUST stay resumable so the next agent can pick it up."""
+        self._seed_codex_workflow()
+        save_checkpoint(self.root, "app", "task-1", Checkpoint(
+            agent="codex", step="handoff", state="completed",
+            summary="Handed off to claude",
+            next_hint="Task handed to claude. Use resume_task to pick up.",
+        ))
+        update_task_run_state(
+            runtime_root=self.root, project="app", task_slug="task-1",
+            state="handed_off", agent="codex",
+        )
+        ctx = build_resume_context(self.root, "app", "task-1")
+        self.assertTrue(ctx["can_resume"])
+        self.assertEqual(ctx["last_state"], "handed_off")
+
+    def test_recent_checkpoints_expose_agent_not_seq(self) -> None:
+        """recent_checkpoints carries the agent name under an 'agent' key."""
+        self._seed_codex_workflow()
+        ctx = build_resume_context(self.root, "app", "task-1")
+        self.assertTrue(ctx["recent_checkpoints"])
+        latest = ctx["recent_checkpoints"][-1]
+        self.assertIn("agent", latest)
+        self.assertNotIn("seq", latest)
+        self.assertEqual(latest["agent"], "codex")
+
     def test_completed_steps_only(self) -> None:
         self._seed_codex_workflow()
         ctx = build_resume_context(self.root, "app", "task-1")
