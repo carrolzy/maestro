@@ -37,6 +37,17 @@
 /docs/system-plans/
 /docs/system-evolution/
 /docs/superpowers/
+/docs/agent-learning/
+
+# Patterns distilled from private business projects stay LOCAL; only
+# business-free generic patterns are tracked explicitly.
+/memory/patterns/h5-server-side-signing-proxy-heterogeneous-backend.md
+/memory/patterns/miniprogram-webview-ticket-token-auth.md
+/memory/patterns/uniapp-scrollview-height-and-tab-indicator-alignment.md
+
+# Active-task pointer is runtime state (machine-local)
+/runtime/active-task.json
+/runtime/active-task.json.lock
 
 # Scratch / temp work area
 /.codex-temp/
