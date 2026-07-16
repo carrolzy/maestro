@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from active_task import get_active_task, set_active_task
+from artifact_gc import archive as gc_archive, clean as gc_clean, restore as gc_restore, scan as gc_scan
 from checkpoint import Checkpoint, append_to_session_checkpoint, build_resume_context, save_checkpoint
 from git_snapshot import git_changed_files
 from local_skills_doctor import assess_local_skills
@@ -16,6 +17,7 @@ from project_types import list_project_types
 from register_project import register_project
 from search_memory import search_memory
 from task_package_builder import build_task_package
+from temp_registry import refresh_task_temp_files, register_temp_file
 from tool_registry import TOOL_SPECS
 from update_task_run_state import update_task_run_state
 from validate_project import validate_project
@@ -63,6 +65,8 @@ class AiEfficiencyMcpServer:
             "handoff_task": self._call_handoff_task,
             "set_active_task": self._call_set_active_task,
             "snapshot_task": self._call_snapshot_task,
+            "gc_artifacts": self._call_gc_artifacts,
+            "register_temp_file": self._call_register_temp_file,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -123,6 +127,7 @@ class AiEfficiencyMcpServer:
             max_projects=_optional_int(arguments, "max_projects", 5),
             max_cases=_optional_int(arguments, "max_cases", 5),
             max_matches=_optional_int(arguments, "max_matches", 5),
+            include_archived=bool(arguments.get("include_archived")),
         )
 
     def _call_build_task_package(self, arguments: JsonDict) -> JsonDict:
@@ -157,17 +162,24 @@ class AiEfficiencyMcpServer:
 
     def _call_update_task_run_state(self, arguments: JsonDict) -> JsonDict:
         runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
+        project = _required_string(arguments, "project")
+        task_slug = _required_string(arguments, "task_slug")
+        state = _required_string(arguments, "state")
         output_path = update_task_run_state(
             runtime_root=runtime_root,
-            project=_required_string(arguments, "project"),
-            task_slug=_required_string(arguments, "task_slug"),
-            state=_required_string(arguments, "state"),
+            project=project,
+            task_slug=task_slug,
+            state=state,
         )
+        # Closing a task restarts the TTL clock on its registered temp files —
+        # the post-release verification window runs from the close date.
+        if state == "closed":
+            refresh_task_temp_files(runtime_root, project=project, task_slug=task_slug)
         return {
             "path": str(output_path),
-            "project": _required_string(arguments, "project"),
-            "task_slug": _required_string(arguments, "task_slug"),
-            "state": _required_string(arguments, "state"),
+            "project": project,
+            "task_slug": task_slug,
+            "state": state,
         }
 
     def _call_writeback_and_sync_memory(self, arguments: JsonDict) -> JsonDict:
@@ -322,11 +334,16 @@ class AiEfficiencyMcpServer:
             )
 
         pointer_path = set_active_task(runtime_root, project, task_slug, agent)
+        # Provision the task's scratch area — throwaway scripts/probes belong
+        # here, not in the business repo.
+        scratch_dir = runtime_root / "scratch" / project / task_slug
+        scratch_dir.mkdir(parents=True, exist_ok=True)
         return {
             "project": project,
             "task_slug": task_slug,
             "agent": agent,
             "pointer_path": str(pointer_path),
+            "scratch_dir": str(scratch_dir),
             "previous_task_snapshotted": bool(prev and (prev["project"] != project or prev["task_slug"] != task_slug)),
         }
 
@@ -407,6 +424,33 @@ class AiEfficiencyMcpServer:
             "recorded": True,
             "checkpoint_path": str(checkpoint_path) if checkpoint_path else None,
         }
+
+    def _call_gc_artifacts(self, arguments: JsonDict) -> JsonDict:
+        command = _optional_string(arguments, "command") or "scan"
+        if command == "scan":
+            result = gc_scan(self.system_root)
+        elif command == "archive":
+            result = gc_archive(self.system_root)
+        elif command == "clean":
+            result = gc_clean(self.system_root, apply=bool(arguments.get("apply")))
+        elif command == "restore":
+            archive_path = _required_string(arguments, "archive_path")
+            result = gc_restore(self.system_root, archive_path=archive_path)
+        else:
+            raise ValueError(f"Unknown gc command: {command}")
+        return {"command": command, "result": result}
+
+    def _call_register_temp_file(self, arguments: JsonDict) -> JsonDict:
+        runtime_root = self.system_root / "runtime"
+        ttl = arguments.get("ttl_days")
+        return register_temp_file(
+            runtime_root,
+            file_path=_required_string(arguments, "file_path"),
+            project=_required_string(arguments, "project"),
+            task_slug=_required_string(arguments, "task_slug"),
+            ttl_days=int(ttl) if ttl else 30,
+            reason=_optional_string(arguments, "reason") or "",
+        )
 
 
 def _tool_definitions() -> list[JsonDict]:

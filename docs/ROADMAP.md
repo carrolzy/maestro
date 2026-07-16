@@ -179,6 +179,32 @@ tasks.
   BM25 engine — no more duplicated `any(token in text)` matching. 29 new tests
   (BM25 ranking, CJK matching, cosine, index persistence); 221 total green.
 
+### P0 — Artifact lifecycle & workspace hygiene ✅
+- Pain: throwaway helper files (test.js / *.cjs probes) accumulated in
+  business repos, and runtime artifacts grew without bound (one perf trace was
+  62 MB). Both are solved industry-wide (session scratchpads, memory paging) —
+  Maestro now has its own lifecycle layer.
+- ✅ `tooling/artifact_gc.py`: retention engine over `base/retention.json` —
+  `scan` (read-only report), `archive` (gzip task-runs / task-packages /
+  perf-cases / memory-cases into `runtime/archive/`, reversible via
+  `restore`), `clean` (delete expired scratch + registered temp files;
+  dry-run by default, git-tracked files always protected). Memory patterns
+  and rules are permanent and never governed. `bin/gc.sh` wraps it.
+- ✅ `tooling/temp_registry.py`: TTL registry for helper files that must live
+  inside a business repo. TTL restarts when the task closes — covering the
+  post-release "might need to re-verify" window — then the file is garbage.
+- ✅ Central scratch area `runtime/scratch/<project>/<task-slug>/`, provisioned
+  by `set_active_task` (returns `scratch_dir`); throwaway probes belong there,
+  not in the business repo.
+- ✅ 2 new MCP tools (16 total): `gc_artifacts`, `register_temp_file`.
+  `search_memory` gains `include_archived` (archived `.md.gz` cases are
+  skipped by default, still reachable on demand).
+- ✅ New `workspace-hygiene` skill; `verification-before-close` now blocks
+  `closed` while unregistered throwaway files remain in the business repo.
+- ✅ 25 new tests (GC scan/archive/restore/clean, registry TTL, archived-case
+  search); 249 total green. First real run archived 62 MB of perf traces down
+  to 4.2 MB.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.

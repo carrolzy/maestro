@@ -30,6 +30,13 @@
 /runtime/perf-cases/*
 !/runtime/perf-cases/.gitkeep
 
+# Artifact-lifecycle outputs: compressed archives, per-task scratch area,
+# and the temp-file TTL registry are all machine-local.
+/runtime/archive/
+/runtime/scratch/
+/runtime/temp-files.json
+/runtime/temp-files.json.lock
+
 # Personal design journal, assessments, eval logs and dated planning notes are
 # kept LOCAL. The published docs/ carries only ARCHITECTURE.md and ROADMAP.md.
 /docs/assessments/

@@ -21,6 +21,7 @@ def search_memory(
     max_projects: int = 5,
     max_cases: int = 5,
     max_matches: int = 5,
+    include_archived: bool = False,
 ) -> dict[str, object]:
     projects_root = system_root / "projects"
     if project is not None and not (projects_root / project).exists():
@@ -48,9 +49,9 @@ def search_memory(
             }
 
     if project is not None:
-        recent_cases = _recent_case_entries(system_root=system_root, project=project, limit=max_cases)
+        recent_cases = _recent_case_entries(system_root=system_root, project=project, limit=max_cases, include_archived=include_archived)
     else:
-        recent_cases = _recent_case_entries_all_projects(system_root=system_root, limit=max_cases)
+        recent_cases = _recent_case_entries_all_projects(system_root=system_root, limit=max_cases, include_archived=include_archived)
 
     # Load the optional embedding index for semantic hybrid search.
     emb_idx = EmbeddingIndex.load(system_root / "memory" / ".embedding_cache.json")
@@ -90,6 +91,8 @@ def main(
     parser.add_argument("--max-projects", type=int, default=5)
     parser.add_argument("--max-cases", type=int, default=5)
     parser.add_argument("--max-matches", type=int, default=5)
+    parser.add_argument("--include-archived", action="store_true",
+                        help="Also list archived (.md.gz) memory cases; skipped by default.")
     args = parser.parse_args(argv)
 
     resolved_system_root = system_root or Path(__file__).resolve().parent.parent
@@ -100,6 +103,7 @@ def main(
         max_projects=max(1, args.max_projects),
         max_cases=max(1, args.max_cases),
         max_matches=max(1, args.max_matches),
+        include_archived=args.include_archived,
     )
     _write_output(_format_output(result), stdout_path=stdout_path)
     return 0
@@ -127,15 +131,24 @@ def _selected_projects(*, projects_root: Path, project: str | None, query: str, 
     return [slugs[i] for i, _ in top]
 
 
-def _recent_case_entries(*, system_root: Path, project: str, limit: int) -> list[dict[str, str]]:
+def _case_paths(case_dir: Path, *, include_archived: bool) -> list[Path]:
+    """Case files to consider. Archived cases (.md.gz, produced by artifact_gc)
+    are skipped unless explicitly requested."""
+    paths = list(case_dir.glob("*.md"))
+    if include_archived:
+        paths.extend(case_dir.glob("*.md.gz"))
+    return paths
+
+
+def _recent_case_entries(*, system_root: Path, project: str, limit: int, include_archived: bool = False) -> list[dict[str, str]]:
     case_dir = system_root / "memory" / "projects" / project / "cases"
     if not case_dir.exists():
         return []
-    paths = sorted(case_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
-    return [{"project": project, "slug": p.stem, "path": p.relative_to(system_root).as_posix()} for p in paths]
+    paths = sorted(_case_paths(case_dir, include_archived=include_archived), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    return [{"project": project, "slug": p.name.removesuffix(".gz").removesuffix(".md"), "path": p.relative_to(system_root).as_posix()} for p in paths]
 
 
-def _recent_case_entries_all_projects(*, system_root: Path, limit: int) -> list[dict[str, str]]:
+def _recent_case_entries_all_projects(*, system_root: Path, limit: int, include_archived: bool = False) -> list[dict[str, str]]:
     memory_projects_root = system_root / "memory" / "projects"
     if not memory_projects_root.exists():
         return []
@@ -144,10 +157,10 @@ def _recent_case_entries_all_projects(*, system_root: Path, limit: int) -> list[
         case_dir = project_dir / "cases"
         if not case_dir.exists():
             continue
-        for path in case_dir.glob("*.md"):
+        for path in _case_paths(case_dir, include_archived=include_archived):
             scored.append((path.stat().st_mtime, project_dir.name, path))
     scored.sort(key=lambda x: (-x[0], x[1], x[2].name))
-    return [{"project": proj, "slug": p.stem, "path": p.relative_to(system_root).as_posix()} for _, proj, p in scored[:limit]]
+    return [{"project": proj, "slug": p.name.removesuffix(".gz").removesuffix(".md"), "path": p.relative_to(system_root).as_posix()} for _, proj, p in scored[:limit]]
 
 
 def _match_entries(

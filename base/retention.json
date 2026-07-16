@@ -1,0 +1,29 @@
+{
+  "$comment": "Maestro artifact retention policy. Ages are in days, measured from the artifact's newest mtime. Action 'archive' compresses into runtime/archive/ (reversible); 'delete' removes after expiry (scratch/temp only). Memory patterns and rules are permanent assets and are never governed here.",
+  "categories": {
+    "scratch": {
+      "action": "delete",
+      "ttl_days": 30
+    },
+    "temp_files": {
+      "action": "delete",
+      "ttl_days": 30
+    },
+    "task_runs": {
+      "action": "archive",
+      "ttl_days": 90
+    },
+    "task_packages": {
+      "action": "archive",
+      "ttl_days": 90
+    },
+    "perf_cases": {
+      "action": "archive",
+      "ttl_days": 30
+    },
+    "memory_cases": {
+      "action": "archive",
+      "ttl_days": 180
+    }
+  }
+}

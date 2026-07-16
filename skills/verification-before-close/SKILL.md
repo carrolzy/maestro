@@ -66,8 +66,15 @@ Use these sources:
    - `verified` if implementation-level verification is complete
    - `pending-closeout` if implementation is done but write-back or sync is still pending
    - `closed` only if verification and required closeout are both complete
-5. Update the task-run state with `tooling/update_task_run_state.py`.
-6. Report the current state and what remains before full closeout.
+5. Workspace hygiene check (before `closed`):
+   - list helper files this task created in the business repo (test probes,
+     debug scripts, one-off verification files)
+   - each must be either registered via `register_temp_file` (with a TTL),
+     deleted now, or explicitly promoted to a tracked permanent file
+   - unregistered throwaway files in the business repo block `closed`
+   - see the `workspace-hygiene` skill for placement rules
+6. Update the task-run state with `tooling/update_task_run_state.py`.
+7. Report the current state and what remains before full closeout.
 
 ## Verification Basis
 

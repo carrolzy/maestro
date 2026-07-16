@@ -155,6 +155,13 @@ class McpToolContractConformanceTests(unittest.TestCase):
                     "project": "alpha", "task_slug": "conformance-test", "agent": "test-runner",
                     "repo_root": str(root),
                 },
+                "gc_artifacts": {"command": "scan"},
+                "register_temp_file": {
+                    "file_path": str(root / "verify-conformance.cjs"),
+                    "project": "alpha",
+                    "task_slug": "conformance-test",
+                    "reason": "conformance probe",
+                },
             }
 
             from tool_registry import tool_names

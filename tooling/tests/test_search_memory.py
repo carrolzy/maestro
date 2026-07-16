@@ -36,6 +36,26 @@ class SearchMemoryTests(unittest.TestCase):
             self.assertEqual([item["slug"] for item in result["recent_cases"]], ["2026-05-20-alpha-case"])
             self.assertEqual(result["project_override"]["slug"], "alpha")
 
+    def test_search_memory_skips_archived_cases_unless_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            _write_project(system_root, "alpha")
+            case_dir = system_root / "memory" / "projects" / "alpha" / "cases"
+            case_dir.mkdir(parents=True, exist_ok=True)
+            (case_dir / "2026-05-20-live-case.md").write_text("# Live\n", encoding="utf-8")
+            import gzip
+            with gzip.open(case_dir / "2025-01-01-cold-case.md.gz", "wt", encoding="utf-8") as fh:
+                fh.write("# Cold\n")
+
+            default = search_memory(system_root=system_root, project="alpha")
+            self.assertEqual([c["slug"] for c in default["recent_cases"]], ["2026-05-20-live-case"])
+
+            with_archived = search_memory(system_root=system_root, project="alpha", include_archived=True)
+            self.assertEqual(
+                sorted(c["slug"] for c in with_archived["recent_cases"]),
+                ["2025-01-01-cold-case", "2026-05-20-live-case"],
+            )
+
     def test_search_memory_matches_patterns_and_rules_by_query(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             system_root = Path(tmp_dir)

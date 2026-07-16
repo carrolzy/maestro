@@ -12,6 +12,7 @@ They are the system-owned drafts that define the intended long-term workflow bou
 - `writeback-and-sync`
 - `verification-before-close`
 - `project-register`
+- `workspace-hygiene`
 
 ## Why These Four
 
@@ -30,7 +31,7 @@ For a normal non-trivial project task, use the stack in this order:
 
 1. `project-intake`
 2. `memory-read-first`
-3. implementation work
+3. implementation work (`workspace-hygiene` governs where helper files go)
 4. `verification-before-close`
 5. `writeback-and-sync`
 6. `verification-before-close` again if closeout state must move from `verified` or `pending-closeout` to `closed`
@@ -88,6 +89,21 @@ Primary backend:
 
 - `tooling/writeback_and_sync_memory.py`
 - `tooling/writeback_and_sync_memory.sh`
+
+### `workspace-hygiene`
+
+Purpose:
+
+- route throwaway helper files (test probes, debug scripts) to the central
+  scratch area `runtime/scratch/<project>/<task-slug>/`
+- register must-stay-in-repo temp files with a TTL so artifact GC reclaims them
+- keep business repositories from accumulating dead files
+
+Primary backend:
+
+- `tooling/temp_registry.py`
+- `tooling/artifact_gc.py`
+- `base/retention.json`
 
 ## Architectural Boundary
 
