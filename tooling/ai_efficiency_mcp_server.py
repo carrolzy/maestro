@@ -11,6 +11,7 @@ from typing import Any, Callable
 from active_task import get_active_task, set_active_task
 from artifact_gc import archive as gc_archive, clean as gc_clean, restore as gc_restore, scan as gc_scan
 from checkpoint import Checkpoint, append_to_session_checkpoint, build_resume_context, save_checkpoint
+from code_search import glob_files, grep_code, read_file_slice, repo_outline
 from git_snapshot import git_changed_files
 from local_skills_doctor import assess_local_skills
 from project_types import list_project_types
@@ -67,6 +68,10 @@ class AiEfficiencyMcpServer:
             "snapshot_task": self._call_snapshot_task,
             "gc_artifacts": self._call_gc_artifacts,
             "register_temp_file": self._call_register_temp_file,
+            "grep_code": self._call_grep_code,
+            "glob_files": self._call_glob_files,
+            "read_file_slice": self._call_read_file_slice,
+            "repo_outline": self._call_repo_outline,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -128,6 +133,8 @@ class AiEfficiencyMcpServer:
             max_cases=_optional_int(arguments, "max_cases", 5),
             max_matches=_optional_int(arguments, "max_matches", 5),
             include_archived=bool(arguments.get("include_archived")),
+            target=_optional_string(arguments, "target") or "knowledge",
+            repo_root=_optional_string(arguments, "repo_root"),
         )
 
     def _call_build_task_package(self, arguments: JsonDict) -> JsonDict:
@@ -450,6 +457,40 @@ class AiEfficiencyMcpServer:
             task_slug=_required_string(arguments, "task_slug"),
             ttl_days=int(ttl) if ttl else 30,
             reason=_optional_string(arguments, "reason") or "",
+        )
+
+    def _call_grep_code(self, arguments: JsonDict) -> JsonDict:
+        return grep_code(
+            repo_root=_required_string(arguments, "repo_root"),
+            pattern=_required_string(arguments, "pattern"),
+            glob=_optional_string(arguments, "glob"),
+            case_insensitive=bool(arguments.get("case_insensitive")),
+            fixed_string=bool(arguments.get("fixed_string")),
+            max_matches=_optional_int(arguments, "max_matches", 50),
+            context_lines=_optional_int(arguments, "context_lines", 2),
+        )
+
+    def _call_glob_files(self, arguments: JsonDict) -> JsonDict:
+        return glob_files(
+            repo_root=_required_string(arguments, "repo_root"),
+            pattern=_required_string(arguments, "pattern"),
+            max_results=_optional_int(arguments, "max_results", 100),
+        )
+
+    def _call_read_file_slice(self, arguments: JsonDict) -> JsonDict:
+        return read_file_slice(
+            repo_root=_required_string(arguments, "repo_root"),
+            file_path=_required_string(arguments, "file_path"),
+            start_line=_optional_int(arguments, "start_line", 1),
+            max_lines=_optional_int(arguments, "max_lines", 200),
+        )
+
+    def _call_repo_outline(self, arguments: JsonDict) -> JsonDict:
+        return repo_outline(
+            repo_root=_required_string(arguments, "repo_root"),
+            path=_optional_string(arguments, "path"),
+            max_depth=_optional_int(arguments, "max_depth", 3),
+            max_entries=_optional_int(arguments, "max_entries", 200),
         )
 
 

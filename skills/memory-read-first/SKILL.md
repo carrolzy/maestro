@@ -59,6 +59,11 @@ Do not skip directly to patterns or rules before project-specific context is rea
 5. Read matching reusable patterns.
 6. Read matching standing rules.
 7. Produce a short read-set summary for the current task.
+8. Recall-verification bridge: recalled memory describes the *past*. Before
+   any recalled `file:line` reference, function name, or code-shape claim
+   drives an implementation decision, verify it against the *live* working
+   tree with `grep_code` (see the `agentic-search` skill). If the code moved
+   or changed, note the drift so the eventual write-back corrects the memory.
 
 ## Matching Rules
 
@@ -124,10 +129,10 @@ If no relevant pattern or rule matches:
 
 ## Current Local Constraints
 
-- there is no automated retrieval helper yet
 - memory volume is still small
 - pattern and rule promotion remains manual
-- matching is currently rule-driven, not semantic
+- retrieval is BM25 + optional embeddings via `search_memory`; live-code
+  questions route to agentic search instead (see `agentic-search`)
 
 ## Backend References
 
@@ -135,3 +140,4 @@ If no relevant pattern or rule matches:
 - `memory/README.md`
 - `projects/README.md`
 - `docs/system-specs/2026-05-19-local-skill-stack-v1.md`
+- `skills/agentic-search/SKILL.md`

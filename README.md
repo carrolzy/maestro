@@ -20,8 +20,8 @@ Everything runs on your machine.
 | **Project onboarding** | Register any project with one command (or a web form). Auto-generates business context, playbook, and a machine-readable business card. |
 | **Memory system** | Layered memory (project cards, cases, patterns, rules) that the model reads before work and writes back after. |
 | **Task packaging** | Build a self-contained task brief from project context + requirement text — injectable into any model prompt. |
-| **MCP tool layer** | 16 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
-| **Provider adapters** | Same 16 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
+| **MCP tool layer** | 20 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
+| **Provider adapters** | Same 20 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
 | **Workflow engine** | Deterministic DAG executor — define steps with dependencies, the engine runs them in parallel with lifecycle state tracking, verification gates, and retries. |
 | **Visual dashboard** | Single-page web UI — browse projects, invoke tools, run workflows, search memory. All clickable, zero CLI memorization. |
 
@@ -174,7 +174,7 @@ previous ones.
 │  tool_registry.py (canonical specs)                 │
 ├─────────────────────────────────────────────────────┤
 │  Phase 1 — MCP Tool Layer                           │
-│  ai_efficiency_mcp_server.py (16 tools, schemas)    │
+│  ai_efficiency_mcp_server.py (20 tools, schemas)    │
 │  context_pack.py (raw-API context injection)        │
 ├─────────────────────────────────────────────────────┤
 │  Phase 0 — Reusable Asset Library                   │
@@ -203,7 +203,7 @@ maestro/
 │   └── provider-tools.sh         #   Provider-native tool declarations
 │
 ├── tooling/                      # Core engine (pure Python, zero deps)
-│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (16 tools)
+│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (20 tools)
 │   ├── tool_registry.py          #   Canonical tool specs (single source of truth)
 │   ├── adapters/                 #   Per-provider format translators
 │   │   ├── openai.py / anthropic.py / gemini.py / base.py
@@ -260,7 +260,7 @@ maestro/
 
 ## Tools Reference
 
-These 16 tools are available via MCP, provider adapters, dashboard, and API:
+These 20 tools are available via MCP, provider adapters, dashboard, and API:
 
 | Tool | Description |
 |---|---|
@@ -280,6 +280,10 @@ These 16 tools are available via MCP, provider adapters, dashboard, and API:
 | `snapshot_task` | Git-based checkpoint of changed files (runtime-independent) |
 | `gc_artifacts` | Artifact lifecycle: scan / archive (gzip, reversible) / clean (TTL, dry-run) / restore |
 | `register_temp_file` | Register an in-repo helper file with a TTL so GC reclaims it later |
+| `grep_code` | Agentic code search: live regex/literal grep over any repo (ripgrep or pure-Python), file:line + context |
+| `glob_files` | List files by glob pattern, newest first — scope a search before grepping |
+| `read_file_slice` | Read a bounded line range of a file — keep context windows small |
+| `repo_outline` | Live directory tree or per-file symbol outline (functions/classes) — never cached, never stale |
 
 ---
 
@@ -313,7 +317,7 @@ Define steps with dependencies — the engine handles the rest:
 
 ```bash
 PYTHONPATH=tooling python3 -m unittest discover -s tooling/tests -p 'test_*.py'
-# 249 tests pass — requires Python 3.10+ (the default `python3` must be 3.10+,
+# 272 tests pass — requires Python 3.10+ (the default `python3` must be 3.10+,
 # not macOS's bundled 3.9; `zip(strict=True)` / PEP 604 fail on 3.9)
 ```
 

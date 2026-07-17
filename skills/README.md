@@ -13,6 +13,7 @@ They are the system-owned drafts that define the intended long-term workflow bou
 - `verification-before-close`
 - `project-register`
 - `workspace-hygiene`
+- `agentic-search`
 
 ## Why These Four
 
@@ -104,6 +105,22 @@ Primary backend:
 - `tooling/temp_registry.py`
 - `tooling/artifact_gc.py`
 - `base/retention.json`
+
+### `agentic-search`
+
+Purpose:
+
+- route retrieval: memory RAG for write-once knowledge (past fixes,
+  requirements, patterns), agentic live-code search for "what is true now"
+- drive the multi-hop loop (orient → anchor → read → hop → stop) with a
+  tool-call budget and a file:line evidence contract
+- enforce the bridge rule: recalled memory references must be verified
+  against the live working tree before they drive code changes
+
+Primary backend:
+
+- `tooling/code_search.py`
+- `tooling/search_memory.py` (`target=knowledge|code|auto`)
 
 ## Architectural Boundary
 

@@ -3,6 +3,15 @@
 
 BM25 powers the text ranking; an optional embedding index at
 memory/.embedding_cache.json adds semantic (cross-language) recall.
+
+Retrieval routing (`target`):
+  - "knowledge" (default): RAG over memory/ — cases, patterns, rules. Right
+    for write-once knowledge: past fixes, business requirements, decisions.
+  - "code": one live grep seed over a business repo + an instruction to
+    continue with the agentic loop (grep_code / read_file_slice / follow
+    references). Right for live code, where any static index goes stale.
+  - "auto": both cheap first-passes, sources labelled — the caller sees which
+    side has signal and digs deeper there.
 """
 from __future__ import annotations
 
@@ -22,12 +31,35 @@ def search_memory(
     max_cases: int = 5,
     max_matches: int = 5,
     include_archived: bool = False,
+    target: str = "knowledge",
+    repo_root: str | None = None,
 ) -> dict[str, object]:
+    if target not in ("knowledge", "code", "auto"):
+        raise ValueError(f"Unknown target: {target} (expected knowledge, code, or auto)")
+
     projects_root = system_root / "projects"
     if project is not None and not (projects_root / project).exists():
         raise ValueError(f"Unknown project: {project}")
 
     q = query or ""
+
+    # ── code routing ──
+    # Live-code questions get a grep seed over the working tree plus an
+    # instruction to continue agentically — never a stale index lookup.
+    code_seed = None
+    if target in ("code", "auto"):
+        code_seed = _code_seed(query=q, repo_root=repo_root)
+        if target == "code":
+            return {
+                "target": "code",
+                "project_cards": [],
+                "project_override": None,
+                "recent_cases": [],
+                "matched_patterns": [],
+                "matched_rules": [],
+                "code_seed": code_seed,
+            }
+
     project_slugs = _selected_projects(projects_root=projects_root, project=project, query=q, limit=max_projects)
 
     project_cards = []
@@ -71,12 +103,49 @@ def search_memory(
         emb_idx=emb_idx,
     )
 
-    return {
+    result: dict[str, object] = {
+        "target": target,
         "project_cards": project_cards,
         "project_override": project_override,
         "recent_cases": recent_cases,
         "matched_patterns": matched_patterns,
         "matched_rules": matched_rules,
+    }
+    if code_seed is not None:
+        result["code_seed"] = code_seed
+    return result
+
+
+def _code_seed(*, query: str, repo_root: str | None) -> dict[str, object]:
+    """One cheap live grep as an agentic-search entry point.
+
+    Not a full answer: the caller is expected to continue the loop with
+    grep_code / read_file_slice / repo_outline, following references until it
+    has file:line evidence.
+    """
+    instruction = (
+        "This is a LIVE-CODE question — memory may be stale. Continue with an "
+        "agentic loop: grep_code for anchors, read_file_slice around matches, "
+        "follow definitions/references with further greps. Cite file:line "
+        "evidence; do not answer from memory alone."
+    )
+    if not repo_root:
+        return {
+            "instruction": instruction + " (No repo_root was given — pass the business repo path to get a grep seed.)",
+            "seed_matches": [],
+            "engine": None,
+        }
+    from code_search import grep_code as _grep
+
+    try:
+        seed = _grep(repo_root=repo_root, pattern=query, fixed_string=True, max_matches=10, context_lines=1)
+    except ValueError as exc:
+        return {"instruction": instruction, "seed_matches": [], "engine": None, "error": str(exc)}
+    return {
+        "instruction": instruction,
+        "seed_matches": seed["matches"],
+        "engine": seed["engine"],
+        "truncated": seed["truncated"],
     }
 
 
@@ -93,6 +162,10 @@ def main(
     parser.add_argument("--max-matches", type=int, default=5)
     parser.add_argument("--include-archived", action="store_true",
                         help="Also list archived (.md.gz) memory cases; skipped by default.")
+    parser.add_argument("--target", default="knowledge", choices=["knowledge", "code", "auto"],
+                        help="knowledge = RAG over memory/ (default); code = live grep seed + agentic instruction; auto = both, labelled.")
+    parser.add_argument("--repo-root", default=None,
+                        help="Business repo path for code/auto targets.")
     args = parser.parse_args(argv)
 
     resolved_system_root = system_root or Path(__file__).resolve().parent.parent
@@ -104,6 +177,8 @@ def main(
         max_cases=max(1, args.max_cases),
         max_matches=max(1, args.max_matches),
         include_archived=args.include_archived,
+        target=args.target,
+        repo_root=args.repo_root,
     )
     _write_output(_format_output(result), stdout_path=stdout_path)
     return 0
@@ -308,6 +383,15 @@ def _format_output(result: dict[str, object]) -> str:
             lines.append(f"- {item['slug']}: {item['path']}")
     else:
         lines.append("- None")
+
+    code_seed = result.get("code_seed")
+    if code_seed:
+        lines.extend(["", "Code Seed (live grep — continue agentically)", ""])
+        lines.append(f"- instruction: {code_seed['instruction']}")
+        for m in code_seed.get("seed_matches", []):
+            lines.append(f"- {m['path']}:{m['line']}: {m['text'].strip()}")
+        if not code_seed.get("seed_matches"):
+            lines.append("- no seed matches")
 
     return "\n".join(lines) + "\n"
 

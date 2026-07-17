@@ -205,6 +205,36 @@ tasks.
   search); 249 total green. First real run archived 62 MB of perf traces down
   to 4.2 MB.
 
+### P0 — Agentic search & retrieval routing ✅
+- Insight (industry-validated by Claude Code): live code must never be served
+  from a static index — code changes with every commit, so any index is a
+  stale snapshot. Instead: fast live-search primitives + a model-driven
+  multi-hop loop. RAG stays for what it's best at: the write-once memory
+  corpus (cases, patterns, rules).
+- ✅ `tooling/code_search.py`: four zero-dep primitives, all taking a
+  `repo_root` so any MCP client (Codex especially) can search any registered
+  business repo through one protocol —
+  `grep_code` (ripgrep when present, pure-Python fallback; file:line +
+  context), `glob_files` (newest first), `read_file_slice` (bounded line
+  ranges, no whole-file dumps), `repo_outline` (live directory tree /
+  regex-ctags symbols; computed per call, never persisted — the freshness
+  guarantee).
+- ✅ `search_memory` becomes the unified retrieval entry point with `target`:
+  `knowledge` (default, BM25+embedding RAG over memory/ — unchanged),
+  `code` (live grep seed + explicit instruction to continue agentically),
+  `auto` (both cheap first-passes, labelled by source).
+- ✅ New `agentic-search` skill: routing table (history/requirements → RAG;
+  live code → agentic loop), loop discipline (orient → anchor → read → hop;
+  ≤8 tool calls; stop on file:line evidence or two dry hops), and the bridge
+  rule — **RAG recall → agentic verify**: recalled `file:line` references
+  must be confirmed against the working tree before driving changes, and
+  drift gets corrected at write-back.
+- ✅ `memory-read-first` gains the recall-verification step; the retrieval
+  loop closes: RAG owns the past, agentic owns the present, write-back turns
+  the present into the past.
+- ✅ 4 new MCP tools (20 total); 24 new tests (rg + pure-Python engines, CJK
+  content, routing targets); 272 total green.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.

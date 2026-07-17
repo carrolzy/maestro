@@ -162,6 +162,13 @@ class McpToolContractConformanceTests(unittest.TestCase):
                     "task_slug": "conformance-test",
                     "reason": "conformance probe",
                 },
+                "grep_code": {"repo_root": str(system_root), "pattern": "Business Context"},
+                "glob_files": {"repo_root": str(system_root), "pattern": "**/*.md"},
+                "read_file_slice": {
+                    "repo_root": str(system_root),
+                    "file_path": "projects/alpha/business-context.md",
+                },
+                "repo_outline": {"repo_root": str(system_root)},
             }
 
             from tool_registry import tool_names

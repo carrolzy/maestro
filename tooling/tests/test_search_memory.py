@@ -56,6 +56,55 @@ class SearchMemoryTests(unittest.TestCase):
                 ["2025-01-01-cold-case", "2026-05-20-live-case"],
             )
 
+    def test_target_code_returns_grep_seed_and_instruction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            repo = Path(tmp_dir) / "biz-repo"
+            (repo / "src").mkdir(parents=True)
+            system_root.mkdir()
+            (repo / "src" / "cart.js").write_text("function addToCart() {}\n", encoding="utf-8")
+
+            result = search_memory(
+                system_root=system_root, query="addToCart",
+                target="code", repo_root=str(repo),
+            )
+            self.assertEqual(result["target"], "code")
+            self.assertEqual(result["recent_cases"], [])  # knowledge side skipped
+            seed = result["code_seed"]
+            self.assertIn("agentic", seed["instruction"])
+            self.assertEqual(seed["seed_matches"][0]["path"], "src/cart.js")
+
+    def test_target_auto_returns_both_sides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            repo = Path(tmp_dir) / "biz-repo"
+            repo.mkdir(parents=True)
+            _write_project(system_root, "alpha")
+            (repo / "cart.js").write_text("function addToCart() {}\n", encoding="utf-8")
+            pattern_dir = system_root / "memory" / "patterns"
+            pattern_dir.mkdir(parents=True)
+            (pattern_dir / "cart-pattern.md").write_text("# Cart\n\naddToCart lock pattern\n", encoding="utf-8")
+
+            result = search_memory(
+                system_root=system_root, query="addToCart",
+                target="auto", repo_root=str(repo),
+            )
+            self.assertEqual(result["target"], "auto")
+            self.assertEqual(result["matched_patterns"][0]["slug"], "cart-pattern")
+            self.assertEqual(result["code_seed"]["seed_matches"][0]["path"], "cart.js")
+
+    def test_target_code_without_repo_root_still_instructs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            result = search_memory(system_root=system_root, query="checkout", target="code")
+            self.assertEqual(result["code_seed"]["seed_matches"], [])
+            self.assertIn("repo_root", result["code_seed"]["instruction"])
+
+    def test_unknown_target_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with self.assertRaises(ValueError):
+                search_memory(system_root=Path(tmp_dir), query="x", target="hybrid")
+
     def test_search_memory_matches_patterns_and_rules_by_query(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             system_root = Path(tmp_dir)

@@ -45,7 +45,7 @@ TOOL_SPECS: list[JsonDict] = [
     _tool_schema(
         "search_memory",
         "Search Memory",
-        "Search local project cards, recent memory cases, reusable patterns, and standing rules.",
+        "Unified retrieval entry point. target='knowledge' (default): RAG over local memory — project cards, cases, patterns, rules; right for write-once knowledge (past fixes, requirements, decisions). target='code': live grep seed over a business repo + instruction to continue the agentic loop; right for live-code questions where indexes go stale. target='auto': both, labelled.",
         {
             "project": {"type": "string", "description": "Project slug to scope the search to; omit to search across projects."},
             "query": {"type": "string", "description": "Free-text query; tokens are matched against cards, cases, patterns, and rules."},
@@ -53,10 +53,13 @@ TOOL_SPECS: list[JsonDict] = [
             "max_cases": {"type": "integer", "minimum": 1, "description": "Maximum recent cases to return (default 5)."},
             "max_matches": {"type": "integer", "minimum": 1, "description": "Maximum pattern/rule matches to return (default 5)."},
             "include_archived": {"type": "boolean", "description": "Also list archived (.md.gz) memory cases; skipped by default."},
+            "target": {"type": "string", "enum": ["knowledge", "code", "auto"], "description": "Retrieval route: knowledge = memory RAG (default); code = live grep seed + agentic instruction; auto = both."},
+            "repo_root": {"type": "string", "description": "Business repo path for code/auto targets — the grep seed runs here."},
         },
         output_schema={
             "type": "object",
             "properties": {
+                "target": {"type": "string"},
                 "project_cards": {
                     "type": "array",
                     "items": {
@@ -72,6 +75,7 @@ TOOL_SPECS: list[JsonDict] = [
                 "recent_cases": {"type": "array"},
                 "matched_patterns": {"type": "array"},
                 "matched_rules": {"type": "array"},
+                "code_seed": {"type": "object", "description": "code/auto targets only: live grep seed matches + instruction to continue the agentic loop."},
             },
             "required": ["project_cards", "project_override", "recent_cases", "matched_patterns", "matched_rules"],
             "additionalProperties": False,
@@ -431,6 +435,143 @@ TOOL_SPECS: list[JsonDict] = [
                 "expires_at": {"type": "string"},
             },
             "required": ["path", "project", "task_slug", "expires_at"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "grep_code",
+        "Grep Code",
+        "Agentic code search: regex/literal search over LIVE file contents of any repo (no stale index — results come straight from the working tree). Returns file:line matches with context lines. Use in a multi-hop loop: find anchors, then follow definitions/references with further searches and read_file_slice.",
+        {
+            "repo_root": {"type": "string", "description": "Absolute path of the repository/directory to search."},
+            "pattern": {"type": "string", "description": "Regex pattern (or literal when fixed_string=true)."},
+            "glob": {"type": "string", "description": "Filter files by glob, e.g. '*.vue' or 'src/**/*.ts'."},
+            "case_insensitive": {"type": "boolean", "description": "Case-insensitive matching."},
+            "fixed_string": {"type": "boolean", "description": "Treat pattern as a literal string, not regex."},
+            "max_matches": {"type": "integer", "minimum": 1, "description": "Cap on returned matches (default 50, max 500)."},
+            "context_lines": {"type": "integer", "minimum": 0, "description": "Context lines around each match (default 2, max 10)."},
+        },
+        required=["repo_root", "pattern"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "repo_root": {"type": "string"},
+                "pattern": {"type": "string"},
+                "engine": {"type": "string", "description": "'ripgrep' or 'python' (pure-Python fallback)."},
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "text": {"type": "string"},
+                            "context": {"type": "array"},
+                        },
+                    },
+                },
+                "match_count": {"type": "integer"},
+                "truncated": {"type": "boolean"},
+            },
+            "required": ["repo_root", "pattern", "engine", "matches", "match_count", "truncated"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "glob_files",
+        "Glob Files",
+        "List files matching a glob pattern in any repo, newest first. Use to scope an agentic search before grepping (e.g. find all '*.vue' pages).",
+        {
+            "repo_root": {"type": "string", "description": "Absolute path of the repository/directory."},
+            "pattern": {"type": "string", "description": "Glob pattern, e.g. '**/*.ts' or 'src/pages/**/*.vue'."},
+            "max_results": {"type": "integer", "minimum": 1, "description": "Cap on returned files (default 100, max 1000)."},
+        },
+        required=["repo_root", "pattern"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "repo_root": {"type": "string"},
+                "pattern": {"type": "string"},
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}, "mtime": {"type": "integer"}},
+                    },
+                },
+                "file_count": {"type": "integer"},
+                "truncated": {"type": "boolean"},
+            },
+            "required": ["repo_root", "pattern", "files", "file_count", "truncated"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "read_file_slice",
+        "Read File Slice",
+        "Read a line range of a file (default 200 lines). Keeps agentic-search context small: grep first, then read only the relevant slice instead of whole files.",
+        {
+            "repo_root": {"type": "string", "description": "Absolute path of the repository/directory."},
+            "file_path": {"type": "string", "description": "File path relative to repo_root."},
+            "start_line": {"type": "integer", "minimum": 1, "description": "First line to read (1-based, default 1)."},
+            "max_lines": {"type": "integer", "minimum": 1, "description": "Lines to return (default 200, max 1000)."},
+        },
+        required=["repo_root", "file_path"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "repo_root": {"type": "string"},
+                "path": {"type": "string"},
+                "start_line": {"type": "integer"},
+                "end_line": {"type": "integer"},
+                "total_lines": {"type": "integer"},
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"line": {"type": "integer"}, "text": {"type": "string"}},
+                    },
+                },
+                "truncated": {"type": "boolean"},
+            },
+            "required": ["repo_root", "path", "start_line", "end_line", "total_lines", "lines", "truncated"],
+            "additionalProperties": False,
+        },
+    ),
+    _tool_schema(
+        "repo_outline",
+        "Repo Outline",
+        "Directory tree of a repo (noise dirs skipped), or extracted symbols (functions/classes/methods) for a single file. Computed live on every call — never cached, never stale. Use to orient before grepping.",
+        {
+            "repo_root": {"type": "string", "description": "Absolute path of the repository/directory."},
+            "path": {"type": "string", "description": "Subdirectory to outline, or a file to extract symbols from. Omit for repo root."},
+            "max_depth": {"type": "integer", "minimum": 1, "description": "Tree depth for directories (default 3, max 8)."},
+            "max_entries": {"type": "integer", "minimum": 1, "description": "Cap on entries/symbols (default 200, max 1000)."},
+        },
+        required=["repo_root"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "repo_root": {"type": "string"},
+                "path": {"type": "string"},
+                "kind": {"type": "string", "description": "'dir' or 'file'."},
+                "symbols": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}, "kind": {"type": "string"}, "line": {"type": "integer"}},
+                    },
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}, "kind": {"type": "string"}, "depth": {"type": "integer"}},
+                    },
+                },
+                "truncated": {"type": "boolean"},
+            },
+            "required": ["repo_root", "path", "kind", "symbols", "entries", "truncated"],
             "additionalProperties": False,
         },
     ),
