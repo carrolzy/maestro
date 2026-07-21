@@ -7,6 +7,8 @@ They are the system-owned drafts that define the intended long-term workflow bou
 
 ## Current Skill Stack
 
+**Lifecycle skills** (task entry/exit discipline):
+
 - `project-intake`
 - `memory-read-first`
 - `writeback-and-sync`
@@ -14,6 +16,13 @@ They are the system-owned drafts that define the intended long-term workflow bou
 - `project-register`
 - `workspace-hygiene`
 - `agentic-search`
+
+**Methodology skills** (implementation-process discipline):
+
+- `brainstorming`
+- `writing-plans`
+- `test-driven-development`
+- `systematic-debugging`
 
 ## Why These Four
 
@@ -32,10 +41,19 @@ For a normal non-trivial project task, use the stack in this order:
 
 1. `project-intake`
 2. `memory-read-first`
-3. implementation work (`workspace-hygiene` governs where helper files go)
-4. `verification-before-close`
-5. `writeback-and-sync`
-6. `verification-before-close` again if closeout state must move from `verified` or `pending-closeout` to `closed`
+3. `brainstorming` — when the requirement is rough or has design choices
+4. `writing-plans` — when the work is multi-step
+5. implementation work:
+   - `test-driven-development` for behavior changes (red → green → refactor)
+   - `systematic-debugging` for bugs (reproduce → locate → understand → fix)
+   - `agentic-search` for live-code questions
+   - `workspace-hygiene` governs where helper files go
+6. `verification-before-close`
+7. `writeback-and-sync`
+8. `verification-before-close` again if closeout state must move from `verified` or `pending-closeout` to `closed`
+
+Steps 3-4 are skippable for trivial, single-step, fully-specified changes —
+each methodology skill states its own skip conditions.
 
 ## Role Of Each Skill
 
@@ -121,6 +139,45 @@ Primary backend:
 
 - `tooling/code_search.py`
 - `tooling/search_memory.py` (`target=knowledge|code|auto`)
+
+### `brainstorming`
+
+Purpose:
+
+- refine rough requirements through one-at-a-time questions with options
+- explore genuine alternatives with trade-offs and a recommendation
+- lock a section-by-section confirmed design before any code is written
+
+Output: `docs/superpowers/specs/<date>-<slug>-design.md`
+
+### `writing-plans`
+
+Purpose:
+
+- decompose a confirmed design into small, independently verifiable tasks
+  (exact files, change description, verification command, dependencies)
+- reality-check the design against live code before planning
+- define the execution contract: verify each task before starting the next
+
+Output: `docs/superpowers/plans/<date>-<slug>-implementation-plan.md`
+
+### `test-driven-development`
+
+Purpose:
+
+- enforce red → green → refactor for behavior changes
+- forbid implementation-before-test (a test that never failed proves nothing)
+- route permanent regression tests to the suite, probes to scratch
+
+### `systematic-debugging`
+
+Purpose:
+
+- four phases: reproduce → locate → understand → fix
+- iron rule: no changing code whose failure mechanism can't be stated in one
+  sentence
+- failed fix prediction = wrong understanding → back to locate, never stack
+  guesses; escalate after 3 misses with documented findings
 
 ## Architectural Boundary
 
