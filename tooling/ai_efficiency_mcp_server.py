@@ -19,6 +19,7 @@ from register_project import register_project
 from search_memory import search_memory
 from task_package_builder import build_task_package
 from temp_registry import refresh_task_temp_files, register_temp_file
+from test_doctor import audit_tests
 from tool_registry import TOOL_SPECS
 from update_task_run_state import update_task_run_state
 from validate_project import validate_project
@@ -72,6 +73,7 @@ class AiEfficiencyMcpServer:
             "glob_files": self._call_glob_files,
             "read_file_slice": self._call_read_file_slice,
             "repo_outline": self._call_repo_outline,
+            "audit_tests": self._call_audit_tests,
         }
 
     def handle_request(self, request: JsonDict) -> JsonDict | None:
@@ -491,6 +493,12 @@ class AiEfficiencyMcpServer:
             path=_optional_string(arguments, "path"),
             max_depth=_optional_int(arguments, "max_depth", 3),
             max_entries=_optional_int(arguments, "max_entries", 200),
+        )
+
+    def _call_audit_tests(self, arguments: JsonDict) -> JsonDict:
+        return audit_tests(
+            repo_root=_required_string(arguments, "repo_root"),
+            stale_threshold=_optional_int(arguments, "stale_threshold", 5),
         )
 
 

@@ -169,6 +169,7 @@ class McpToolContractConformanceTests(unittest.TestCase):
                     "file_path": "projects/alpha/business-context.md",
                 },
                 "repo_outline": {"repo_root": str(system_root)},
+                "audit_tests": {"repo_root": str(system_root)},
             }
 
             from tool_registry import tool_names

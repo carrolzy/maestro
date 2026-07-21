@@ -69,6 +69,27 @@ probes used to explore behavior are scratch: `runtime/scratch/<project>/
 into the test suite properly (naming, assertions, committed) — don't leave it
 half-alive in the repo root.
 
+## Test-File Placement Rules (suite bloat prevention)
+
+Test directories grow without bound when every task spawns a new file. Rules:
+
+1. **Extend before creating.** Before adding a test file, `grep_code` the
+   test directory for the module's existing test file — if
+   `test_cart.py` / `cart.spec.ts` exists, add your cases THERE. Creating a
+   second test file for a module already covered requires a stated reason.
+2. **Module-anchored naming only.** A test file is named after the module it
+   covers (`test_cart.py` ↔ `cart.py`) — never after the task that produced
+   it. Names containing `-fix`, `-final`, `-v2`, `-debug`, dates, or bare
+   number suffixes are probe names: those files belong in scratch, not test/.
+3. **Never "tidy" a probe into test/.** Moving a one-off verification script
+   into the test directory and committing it disguises garbage as a
+   regression suite — it then evades artifact GC forever (git-tracked files
+   are protected by design).
+
+Periodic cleanup: `audit_tests` (MCP) reports orphaned / task-named / stale /
+duplicate-coverage test files with suggested actions — report only, human
+confirms.
+
 ## Response Contract
 
 When reporting a TDD task complete, show the evidence trail: the failing run

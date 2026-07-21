@@ -265,6 +265,28 @@ tasks.
   intake → memory → brainstorm → plan → (TDD / debug / search) → verify →
   write back.
 
+### P1.1 — Test-suite auditor (suite-bloat control) ✅
+- Same root cause as the artifact-lifecycle work, one layer up: agent-driven
+  development over-produces test files (task-named siblings, probes "tidied"
+  into test/ and committed, tests outliving their modules). Because committed
+  test files are git-tracked, artifact GC deliberately never touches them —
+  so the suite only ever grows.
+- ✅ `tooling/test_doctor.py` + `audit_tests` MCP tool (21 total): read-only
+  auditor over any repo's test dirs. Four categories — orphaned (source gone),
+  task_named (-fix/-final/-v2/date/debug names), stale (source changed ≥N
+  commits since the test did; git-based), duplicate_coverage (many test files
+  per module). Every finding carries a suggested action; nothing is deleted.
+- ✅ Fuzzy source anchoring (exact stem → dir name → containment → shared
+  word-prefix) plus integration/conformance exemption, tuned on Maestro's own
+  suite to zero false positives (first naive run flagged 5 real tests;
+  tightened to 0 with a regression test locking it).
+- ✅ Prevention wired into the skills: `test-driven-development` and
+  `workspace-hygiene` gain test-file placement rules (extend before create,
+  module-anchored names only, probes never enter test/);
+  `verification-before-close` blocks `closed` on task-named additions to test
+  dirs.
+- ✅ 13 new tests; 285 total green.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.

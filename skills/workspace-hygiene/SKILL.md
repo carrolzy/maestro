@@ -40,7 +40,11 @@ When about to create a helper file, decide in this order:
 
 3. **Permanent tests are not temp files.** A real regression test that should
    live with the project is normal code: tracked, reviewed, committed. Do not
-   register it.
+   register it. But it must follow the test-placement rules
+   (`test-driven-development` skill): module-anchored naming, extend the
+   module's existing test file instead of creating task-named siblings
+   (`test-cart-fix.js` is a probe name — probes never enter test/). Suite
+   health is auditable any time with the `audit_tests` MCP tool.
 
 ## TTL Semantics
 

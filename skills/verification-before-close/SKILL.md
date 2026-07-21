@@ -72,6 +72,10 @@ Use these sources:
    - each must be either registered via `register_temp_file` (with a TTL),
      deleted now, or explicitly promoted to a tracked permanent file
    - unregistered throwaway files in the business repo block `closed`
+   - any file this task ADDED to a test directory must state why the
+     module's existing test file could not be extended; task-style names
+     (-fix/-final/-v2/date) block `closed` — merge into the canonical test
+     file or move to scratch (`audit_tests` reports offenders)
    - see the `workspace-hygiene` skill for placement rules
 6. Update the task-run state with `tooling/update_task_run_state.py`.
 7. Report the current state and what remains before full closeout.

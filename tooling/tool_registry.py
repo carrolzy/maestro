@@ -575,6 +575,41 @@ TOOL_SPECS: list[JsonDict] = [
             "additionalProperties": False,
         },
     ),
+    _tool_schema(
+        "audit_tests",
+        "Audit Tests",
+        "Audit a repo's test directories for redundancy (read-only — reports, never deletes). Finds: orphaned tests (source module gone), task-named files (-fix/-final/-v2/date suffixes — promoted one-off probes), stale tests (source changed many commits since the test last did), and duplicate coverage (multiple test files per module). Each finding carries a suggested action for human confirmation.",
+        {
+            "repo_root": {"type": "string", "description": "Absolute path of the repository to audit."},
+            "stale_threshold": {"type": "integer", "minimum": 1, "description": "Source commits since the test's last change before flagging stale (default 5)."},
+        },
+        required=["repo_root"],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "repo_root": {"type": "string"},
+                "test_dirs": {"type": "array", "items": {"type": "string"}},
+                "test_file_count": {"type": "integer"},
+                "git_history_checked": {"type": "boolean", "description": "False when the repo has no git history (stale checks skipped)."},
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "category": {"type": "string", "description": "orphaned | task_named | stale | duplicate_coverage"},
+                            "detail": {"type": "string"},
+                            "suggestion": {"type": "string"},
+                        },
+                    },
+                },
+                "finding_count": {"type": "integer"},
+                "by_category": {"type": "object"},
+            },
+            "required": ["repo_root", "test_dirs", "test_file_count", "git_history_checked", "findings", "finding_count", "by_category"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
