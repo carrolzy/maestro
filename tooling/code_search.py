@@ -112,6 +112,8 @@ def _grep_with_rg(
         cmd.append("--fixed-strings")
     if glob:
         cmd += ["--glob", glob]
+    for ignored in sorted(SKIP_DIRS):
+        cmd += ["--glob", f"!{ignored}/**"]
     cmd += ["--", pattern, "."]
 
     try:
@@ -134,7 +136,7 @@ def _grep_with_rg(
         data = event.get("data", {})
         if etype not in ("match", "context"):
             continue
-        path = (data.get("path") or {}).get("text", "")
+        path = ((data.get("path") or {}).get("text", "")).removeprefix("./")
         text = ((data.get("lines") or {}).get("text") or "").rstrip("\n")
         line_no = data.get("line_number")
         if etype == "context":
