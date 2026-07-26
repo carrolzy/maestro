@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from ai_efficiency_mcp_server import AiEfficiencyMcpServer
@@ -124,6 +125,19 @@ class WorkflowEngineTests(unittest.TestCase):
         self.assertEqual(len(result["steps"]), 1)
         self.assertEqual(result["steps"][0]["state"], "completed")
         self.assertEqual(result["steps"][0]["attempts"], 1)
+
+    def test_identified_workflow_persists_result_for_status_query(self) -> None:
+        result = self.engine.run(self._def([
+            {"id": "s1", "tool": "search_memory", "args": {"project": "alpha", "query": "alpha"}},
+        ], task_slug="persisted"))
+
+        status_path = self.root / "runtime" / "task-runs" / "alpha" / "persisted" / "status.json"
+        workflow_path = status_path.with_name("workflow.json")
+        self.assertEqual(json.loads(status_path.read_text(encoding="utf-8"))["state"], "completed")
+        self.assertEqual(json.loads(workflow_path.read_text(encoding="utf-8"))["steps"], result["steps"])
+        status = self.server.invoke("get_workflow_status", {"project": "alpha", "task_slug": "persisted"})
+        self.assertEqual(status["state"], "completed")
+        self.assertEqual(status["workflow"]["steps"], result["steps"])
 
     def test_two_step_sequential(self) -> None:
         result = self.engine.run(self._def([

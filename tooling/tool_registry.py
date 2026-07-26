@@ -274,6 +274,7 @@ TOOL_SPECS: list[JsonDict] = [
         {
             "project": {"type": "string", "description": "Project slug."},
             "task_slug": {"type": "string", "description": "Task-run slug."},
+            "runtime_root": {"type": "string", "description": "Runtime root (defaults to <system>/runtime)."},
         },
         required=["project", "task_slug"],
         output_schema={
@@ -284,6 +285,7 @@ TOOL_SPECS: list[JsonDict] = [
                 "state": {"type": "string"},
                 "updated_at": {"type": "string"},
                 "history": {"type": "array"},
+                "workflow": {"type": "object"},
             },
             "required": ["project", "task_slug"],
             "additionalProperties": False,

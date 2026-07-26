@@ -12,11 +12,14 @@ parallelism, and lifecycle.
 """
 from __future__ import annotations
 
+import json
 import time
 from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Any
+from pathlib import Path
 
+from update_task_run_state import update_task_run_state
 from workflow_state import StepState, aggregate_state, is_terminal, transition
 
 JsonDict = dict[str, Any]
@@ -49,6 +52,14 @@ class WorkflowEngine:
         task_slug = definition.get("task_slug", "")
 
         _validate_definition(steps)
+        runtime_root = self._runtime_root(project, task_slug)
+        if runtime_root is not None:
+            update_task_run_state(
+                runtime_root=runtime_root,
+                project=project,
+                task_slug=task_slug,
+                state="in_progress",
+            )
 
         # Per-step tracking.
         step_states: dict[str, StepState] = {s["id"]: StepState.PENDING for s in steps}
@@ -143,13 +154,31 @@ class WorkflowEngine:
                 "attempts": step_attempts[sid],
             })
 
-        return {
+        result = {
             "project": project,
             "task_slug": task_slug,
             "aggregate_state": aggregate_state(list(step_states.values())).value,
             "steps": step_results,
             "total_elapsed_ms": total_elapsed_ms,
         }
+        if runtime_root is not None:
+            record_path = runtime_root / "task-runs" / project / task_slug / "workflow.json"
+            record_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            update_task_run_state(
+                runtime_root=runtime_root,
+                project=project,
+                task_slug=task_slug,
+                state=result["aggregate_state"],
+            )
+        return result
+
+    def _runtime_root(self, project: object, task_slug: object) -> Path | None:
+        if not isinstance(project, str) or not project:
+            return None
+        if not isinstance(task_slug, str) or not task_slug:
+            return None
+        system_root = getattr(self._server, "system_root", None)
+        return Path(system_root) / "runtime" if system_root is not None else None
 
     def _execute_step(self, step: dict) -> tuple[StepState, Any, float]:
         """Execute one step: call the tool, handle verification, measure time."""

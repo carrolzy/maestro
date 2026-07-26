@@ -247,15 +247,19 @@ class AiEfficiencyMcpServer:
         task_slug = _required_string(arguments, "task_slug")
         status_path = runtime_root / "task-runs" / project / task_slug / "status.json"
         if not status_path.exists():
-            return {
+            status: JsonDict = {
                 "project": project,
                 "task_slug": task_slug,
                 "state": "unknown",
                 "updated_at": "",
                 "history": [],
             }
-        import json
-        return json.loads(status_path.read_text(encoding="utf-8"))
+        else:
+            status = json.loads(status_path.read_text(encoding="utf-8"))
+        workflow_path = status_path.with_name("workflow.json")
+        if workflow_path.exists():
+            status["workflow"] = json.loads(workflow_path.read_text(encoding="utf-8"))
+        return status
 
     def _call_resume_task(self, arguments: JsonDict) -> JsonDict:
         runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
