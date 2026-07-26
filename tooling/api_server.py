@@ -23,6 +23,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from ai_efficiency_mcp_server import AiEfficiencyMcpServer
+from path_safety import resolve_relative_child
 from workflow_engine import WorkflowEngine
 
 JsonDict = dict[str, Any]
@@ -234,8 +235,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def _serve_static(self, rel_path: str, mime: str) -> None:
         tooling_dir = Path(__file__).resolve().parent
-        file_path = tooling_dir / rel_path
-        if not file_path.exists():
+        file_path = resolve_relative_child(tooling_dir, rel_path)
+        if not file_path.is_file():
             self._json({"error": "not found"}, 404)
             return
         body = file_path.read_bytes()
@@ -247,9 +248,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _cors(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        return
 
 
 def _guess_mime(path: str) -> str:

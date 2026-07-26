@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Optional
 
+from path_safety import resolve_relative_child
 
 def slugify(value: str) -> str:
     value = value.strip().lower()
@@ -59,7 +60,7 @@ def sync_note(
     memory_root: Path,
     slug: Optional[str] = None,
 ) -> tuple[Path, Path]:
-    source_path = (vault_root / note_path).resolve()
+    source_path = resolve_relative_child(vault_root, note_path)
     if not source_path.exists():
         raise FileNotFoundError(f"Source note not found: {source_path}")
 
@@ -99,7 +100,7 @@ def main() -> int:
     args = parser.parse_args()
 
     vault_root = Path(args.vault_root).expanduser().resolve()
-    source_path = (vault_root / args.note_path).resolve()
+    source_path = resolve_relative_child(vault_root, args.note_path)
     if not source_path.exists():
         raise SystemExit(f"Source note not found: {source_path}")
 

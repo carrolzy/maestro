@@ -201,13 +201,13 @@ class StaticFileTests(ApiServerTestBase):
         finally:
             conn.close()
 
-    def test_cors_headers(self) -> None:
+    def test_options_does_not_grant_cross_origin_access(self) -> None:
         conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
         try:
-            conn.request("OPTIONS", "/api/health")
+            conn.request("OPTIONS", "/api/health", headers={"Origin": "https://evil.example"})
             resp = conn.getresponse()
             self.assertEqual(resp.status, 204)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
+            self.assertIsNone(resp.getheader("Access-Control-Allow-Origin"))
         finally:
             conn.close()
 

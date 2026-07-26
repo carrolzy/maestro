@@ -85,3 +85,25 @@ class WritebackAndSyncMemoryTests(unittest.TestCase):
             self.assertTrue(case_path.exists())
             self.assertTrue(index_path.exists())
 
+    def test_writeback_and_sync_memory_rejects_note_path_outside_vault(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            system_root = tmp_root / "system"
+            vault_root = tmp_root / "vault"
+            source_file = tmp_root / "source.md"
+            source_file.write_text(
+                "# Request\n\nTest.\n\n## Context Used\n\n- temp\n\n"
+                "## Implementation\n\n- temp\n\n## Verification\n\n- temp\n\n"
+                "## Risks / Follow-up\n\n- temp\n\n## File References\n\n- temp.md\n",
+                encoding="utf-8",
+            )
+            (system_root / "projects" / "example-capture").mkdir(parents=True)
+
+            with self.assertRaisesRegex(ValueError, "relative|escapes root"):
+                writeback_and_sync_memory(
+                    vault_root=vault_root,
+                    note_path="../outside.md",
+                    project="example-capture",
+                    source_file=source_file,
+                    memory_root=system_root,
+                )

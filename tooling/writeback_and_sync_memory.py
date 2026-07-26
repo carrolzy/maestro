@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from path_safety import resolve_relative_child
 from sync_obsidian_to_memory import sync_note
 
 REQUIRED_NOTE_SECTIONS = [
@@ -37,7 +38,7 @@ def writeback_and_sync_memory(
         raise FileNotFoundError(f"Source markdown not found: {source_file}")
     _assert_known_project(project_root=project_root, project=project)
 
-    target_path = (vault_root / note_path).resolve()
+    target_path = resolve_relative_child(vault_root, note_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     source_content = source_file.read_text(encoding="utf-8").rstrip() + "\n"
     if validate_note_sections:
