@@ -253,6 +253,19 @@ class AiEfficiencyMcpServerTests(unittest.TestCase):
             self.assertTrue(response["result"]["isError"])
             self.assertIn("Unknown project", response["result"]["content"][0]["text"])
 
+    def test_invoke_rejects_undeclared_tool_argument(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            server = AiEfficiencyMcpServer(system_root=Path(tmp_dir))
+            with self.assertRaisesRegex(ValueError, "additional property"):
+                server.invoke("search_memory", {"query": "cart", "unexpected": True})
+
+    def test_invoke_rejects_handler_output_that_violates_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            server = AiEfficiencyMcpServer(system_root=Path(tmp_dir))
+            server._tools["search_memory"] = lambda _arguments: {"wrong": "shape"}
+            with self.assertRaisesRegex(ValueError, "output violates schema"):
+                server.invoke("search_memory", {})
+
     def test_jsonl_stdio_helper_skips_notifications_and_writes_responses(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             system_root = Path(tmp_dir)

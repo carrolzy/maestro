@@ -297,6 +297,7 @@ TOOL_SPECS: list[JsonDict] = [
             "project": {"type": "string", "description": "Project slug."},
             "task_slug": {"type": "string", "description": "Task-run slug to resume."},
             "agent": {"type": "string", "description": "Agent identity of the resuming agent (e.g. 'claude', 'codex')."},
+            "runtime_root": {"type": "string", "description": "Runtime root (defaults to <system>/runtime)."},
         },
         required=["project", "task_slug"],
         output_schema={
@@ -328,6 +329,7 @@ TOOL_SPECS: list[JsonDict] = [
             "from_agent": {"type": "string", "description": "Agent handing off (e.g. 'codex')."},
             "to_agent": {"type": "string", "description": "Agent taking over (e.g. 'claude')."},
             "note": {"type": "string", "description": "Handoff note — what to do next, why handing off."},
+            "runtime_root": {"type": "string", "description": "Runtime root (defaults to <system>/runtime)."},
         },
         required=["project", "task_slug", "from_agent", "to_agent"],
         output_schema={
@@ -352,6 +354,7 @@ TOOL_SPECS: list[JsonDict] = [
             "project": {"type": "string", "description": "Project slug."},
             "task_slug": {"type": "string", "description": "Task-run slug."},
             "agent": {"type": "string", "description": "Agent identity (e.g. 'claude', 'codex')."},
+            "runtime_root": {"type": "string", "description": "Runtime root (defaults to <system>/runtime)."},
         },
         required=["project", "task_slug", "agent"],
         output_schema={

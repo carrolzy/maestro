@@ -13,6 +13,7 @@ from artifact_gc import archive as gc_archive, clean as gc_clean, restore as gc_
 from checkpoint import Checkpoint, append_to_session_checkpoint, build_resume_context, save_checkpoint
 from code_search import glob_files, grep_code, read_file_slice, repo_outline
 from git_snapshot import git_changed_files
+from jsonschema_mini import validate
 from local_skills_doctor import assess_local_skills
 from project_types import list_project_types
 from register_project import register_project
@@ -20,7 +21,7 @@ from search_memory import search_memory
 from task_package_builder import build_task_package
 from temp_registry import refresh_task_temp_files, register_temp_file
 from test_doctor import audit_tests
-from tool_registry import TOOL_SPECS
+from tool_registry import TOOL_SPECS, get_spec
 from update_task_run_state import update_task_run_state
 from validate_project import validate_project
 from workflow_engine import WorkflowEngine
@@ -116,7 +117,15 @@ class AiEfficiencyMcpServer:
         tool = self._tools.get(tool_name)
         if tool is None:
             raise ValueError(f"Unknown tool: {tool_name}")
-        return tool(arguments)
+        spec = get_spec(tool_name)
+        input_errors = validate(arguments, spec["inputSchema"])
+        if input_errors:
+            raise ValueError("Invalid tool input: " + "; ".join(input_errors))
+        payload = tool(arguments)
+        output_errors = validate(payload, spec["outputSchema"])
+        if output_errors:
+            raise ValueError("Tool output violates schema: " + "; ".join(output_errors))
+        return payload
 
     def call_tool(self, tool_name: str, arguments: JsonDict) -> JsonDict:
         try:
