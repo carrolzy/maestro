@@ -18,8 +18,8 @@ DeepSeek，或任何支持 MCP 的客户端。它为每个接入的模型提供�
 | **项目接入** | 一条命令（或一个 Web 表单）注册任何项目。自动生成业务上下文、剧本和机器可读的商务名片。 |
 | **记忆系统** | 分层记忆（项目卡片、案例、模式、规则），模型在工作前读取，工作后回写。 |
 | **任务打包** | 从项目上下文 + 需求文本构建自包含的任务简报 — 可注入任何模型提示词。 |
-| **MCP 工具层** | 10 个 MCP 工具，带有完整的 `inputSchema` / `outputSchema` 和一致性测试套件。任何 MCP 客户端都能获得可发现、已验证的契约。 |
-| **Provider 适配器** | 同样的 10 个工具，以 OpenAI、DeepSeek、Anthropic、Gemini 原生 function-calling 格式暴露。纯翻译器，零业务逻辑。 |
+| **MCP 工具层** | 21 个 MCP 工具，带有完整的 `inputSchema` / `outputSchema` 和一致性测试套件。任何 MCP 客户端都能获得可发现、已验证的契约。 |
+| **Provider 适配器** | 同样的 21 个工具，以 OpenAI、DeepSeek、Anthropic、Gemini 原生 function-calling 格式暴露。纯翻译器，零业务逻辑。 |
 | **工作流引擎** | 确定性 DAG 执行器 — 定义步骤和依赖关系，引擎自动并行执行，附带生命周期状态跟踪、验证门和重试机制。 |
 | **可视化控制台** | 单页 Web UI — 浏览项目、调用工具、运行工作流、搜索记忆。全可点击，不需要记任何命令。 |
 
@@ -43,7 +43,7 @@ bin/setup-claude.sh
 ```
 
 安装脚本会自动找到你的 Python、安装全部 12 个 Maestro 技能、创建 `.mcp.json`
-让 Claude 能调用全部 14 个 MCP 工具，并运行健康检查。**就此完成。** 重启 Claude Code
+让 Claude 能调用全部 21 个 MCP 工具，并运行健康检查。**就此完成。** 重启 Claude Code
 即可直接说「列出我的项目」或「接入一个新项目」。
 
 不需要 `pip install`、不需要 `npm install`、不需要手动配置。
@@ -118,7 +118,7 @@ curl -X POST http://localhost:8420/api/workflows/run \
 {
   "mcpServers": {
     "maestro": {
-      "command": "python3",
+      "command": "<maestro目录>/bin/python.sh",
       "args": ["tooling/ai_efficiency_mcp_server.py"],
       "env": {
         "PYTHONPATH": "<maestro目录>/tooling"
@@ -161,7 +161,7 @@ Maestro 分五个阶段构建，每个阶段在前一阶段之上叠加，不破
 │  tool_registry.py (规范工具注册表)                  │
 ├──────────────────────────────────────────────────┤
 │  阶段 1 — MCP 工具层                               │
-│  ai_efficiency_mcp_server.py (10 个工具, schema)   │
+│  ai_efficiency_mcp_server.py (21 个工具, schema)   │
 │  context_pack.py (原生 API 上下文注入)              │
 ├──────────────────────────────────────────────────┤
 │  阶段 0 — 可复用资产库                              │
@@ -190,7 +190,7 @@ maestro/
 │   └── provider-tools.sh         #   Provider 原生工具声明
 │
 ├── tooling/                      # 核心引擎（纯 Python，零依赖）
-│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC 服务器 (10 个工具)
+│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC 服务器 (21 个工具)
 │   ├── tool_registry.py          #   规范工具注册表（单一事实来源）
 │   ├── adapters/                 #   各 provider 格式翻译器
 │   │   ├── openai.py / anthropic.py / gemini.py / base.py
@@ -213,7 +213,7 @@ maestro/
 │   ├── runtime_targets.py        #   Agent 运行时注册表
 │   ├── ui/
 │   │   └── dashboard.html        #   单页可视化控制台 (支持中英文切换)
-│   └── tests/                    #   147 个测试 (unittest, 零依赖)
+│   └── tests/                    #   299 个测试 (unittest, 零依赖)
 │
 ├── projects/                     # 各项目配置（业务数据 — 仅本地）
 │   └── example-wxapp/            #   示例项目（演示用）
@@ -247,7 +247,7 @@ maestro/
 
 ## 工具参考
 
-10 个工具通过 MCP、Provider 适配器、控制台和 API 均可使用：
+21 个工具通过 MCP、Provider 适配器、控制台和 API 均可使用：
 
 | 工具 | 说明 |
 |---|---|
@@ -261,6 +261,17 @@ maestro/
 | `list_project_types` | 列出可用项目类型模板及元数据 |
 | `run_workflow` | 执行一个 DAG 工作流定义 |
 | `get_workflow_status` | 按项目和 task_slug 查询工作流运行状态 |
+| `resume_task` | 从检查点构建完整续办上下文（A2A） |
+| `handoff_task` | 通过检查点进行显式的 Agent 间交接 |
+| `set_active_task` | 将编辑检查点指向当前任务，并创建其临时目录 |
+| `snapshot_task` | 基于 Git 为变更文件创建检查点（独立于运行时） |
+| `gc_artifacts` | 制品生命周期管理：扫描、可逆归档、按 TTL 清理和恢复 |
+| `register_temp_file` | 为仓库内辅助文件登记 TTL，供 GC 后续回收 |
+| `grep_code` | 实时代码搜索：在任意仓库执行正则或文本 grep，并返回行号和上下文 |
+| `glob_files` | 按 glob 模式列出文件，先限定搜索范围再执行 grep |
+| `read_file_slice` | 读取文件的有界行区间，控制上下文窗口大小 |
+| `repo_outline` | 获取实时目录树或文件符号概览，不使用可能过期的缓存 |
+| `audit_tests` | 审计仓库测试中的孤立、任务命名、过期或重复覆盖文件（只读） |
 
 ---
 
@@ -293,8 +304,8 @@ maestro/
 ## 运行测试
 
 ```bash
-PYTHONPATH=tooling python3.11 -m unittest discover -s tooling/tests -p 'test_*.py'
-# 147 个测试通过
+PYTHONPATH=tooling bin/python.sh -m unittest discover -s tooling/tests -p 'test_*.py'
+# 299 个测试通过
 ```
 
 ---

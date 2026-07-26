@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TOOL_ROOT="$SCRIPT_DIR/../tooling/perf-diagnostics"
-SYSTEM_TOOLING_ROOT="$SCRIPT_DIR/../tooling"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TOOL_ROOT="$ROOT_DIR/tooling/perf-diagnostics"
 
-PYTHONPATH="$TOOL_ROOT/src:$SYSTEM_TOOLING_ROOT" python3 -m perf_diagnostics.cli "$@"
+PYTHONPATH="$TOOL_ROOT/src:$ROOT_DIR/tooling${PYTHONPATH:+:$PYTHONPATH}" \
+  exec "$ROOT_DIR/bin/python.sh" -m perf_diagnostics.cli "$@"

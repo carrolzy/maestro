@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-python3 "$SCRIPT_DIR/../tooling/search_memory.py" "$@"
+PYTHONPATH="$ROOT_DIR/tooling${PYTHONPATH:+:$PYTHONPATH}" \
+  exec "$ROOT_DIR/bin/python.sh" "$ROOT_DIR/tooling/search_memory.py" "$@"

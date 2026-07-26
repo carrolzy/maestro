@@ -130,7 +130,7 @@ Add to your MCP client config:
 {
   "mcpServers": {
     "maestro": {
-      "command": "python3",
+      "command": "<path-to-maestro>/bin/python.sh",
       "args": ["tooling/ai_efficiency_mcp_server.py"],
       "env": {
         "PYTHONPATH": "<path-to-maestro>/tooling"
@@ -226,7 +226,7 @@ maestro/
 │   ├── runtime_targets.py        #   Agent runtime registry
 │   ├── ui/
 │   │   └── dashboard.html        #   Single-page visual dashboard
-│   └── tests/                    #   147 tests (unittest, zero deps)
+│   └── tests/                    #   299 tests (unittest, zero deps)
 │
 ├── projects/                     # Per-project config (business data — local only)
 │   └── example-wxapp/            #   Sample project for demonstration
@@ -317,9 +317,9 @@ Define steps with dependencies — the engine handles the rest:
 ## Running Tests
 
 ```bash
-PYTHONPATH=tooling python3 -m unittest discover -s tooling/tests -p 'test_*.py'
-# 285 tests pass — requires Python 3.10+ (the default `python3` must be 3.10+,
-# not macOS's bundled 3.9; `zip(strict=True)` / PEP 604 fail on 3.9)
+PYTHONPATH=tooling bin/python.sh -m unittest discover -s tooling/tests -p 'test_*.py'
+# 299 tests pass — bin/python.sh selects Python 3.10+ (or use
+# AI_EFF_PYTHON to select a specific interpreter; macOS's bundled 3.9 is unsupported)
 ```
 
 ---

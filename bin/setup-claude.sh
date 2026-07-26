@@ -8,7 +8,7 @@ set -euo pipefail
 # Run this once after cloning Maestro. It:
 #   1. Finds a Python 3.10+
 #   2. Installs all 12 Maestro skills into ~/.claude/skills/
-#   3. Creates .mcp.json so Claude can call Maestro's 14 tools
+#   3. Creates .mcp.json so Claude can call Maestro's 21 tools
 #   4. Runs a quick health check
 #
 # After this, restart Claude Code (or start a new session) and you're

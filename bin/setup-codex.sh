@@ -83,7 +83,7 @@ startup_timeout_sec = 30.0
 [mcp_servers.maestro.env]
 PYTHONPATH = "$ROOT_DIR/tooling"
 
-# Auto-approve all 14 Maestro tools (they are local and safe)
+# Auto-approve all 21 Maestro tools (they are local and safe)
 [mcp_servers.maestro.tools.search_memory]
 approval_mode = "approve"
 
@@ -122,10 +122,59 @@ approval_mode = "approve"
 
 [mcp_servers.maestro.tools.set_active_task]
 approval_mode = "approve"
+
+[mcp_servers.maestro.tools.snapshot_task]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.gc_artifacts]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.register_temp_file]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.grep_code]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.glob_files]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.read_file_slice]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.repo_outline]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.audit_tests]
+approval_mode = "approve"
 MCPEOF
 
   echo "✅  Maestro MCP server added to $CODEX_CONFIG"
 fi
+
+ensure_tool_approval() {
+  local tool_name="$1"
+  local section="[mcp_servers.maestro.tools.$tool_name]"
+
+  if grep -qF "$section" "$CODEX_CONFIG"; then
+    return
+  fi
+
+  cat >> "$CODEX_CONFIG" <<TOOLEOF
+
+$section
+approval_mode = "approve"
+TOOLEOF
+}
+
+# Existing Maestro configurations need approval entries added as tools evolve.
+for tool_name in \
+  search_memory build_task_package register_project update_task_run_state \
+  writeback_and_sync_memory doctor_local_skills validate_project list_project_types \
+  run_workflow get_workflow_status resume_task handoff_task set_active_task \
+  snapshot_task gc_artifacts register_temp_file grep_code glob_files \
+  read_file_slice repo_outline audit_tests; do
+  ensure_tool_approval "$tool_name"
+done
 
 # ── 3.5 Register the forced-checkpoint PostToolUse hook ────────────
 
@@ -214,7 +263,7 @@ echo ""
 echo "   Next steps:"
 echo "   1. Restart Codex (or open a new session)"
 echo "   2. Run /hooks in Codex and trust the Maestro checkpoint hook"
-echo "   3. Codex now has 14 Maestro MCP tools (auto-approved)"
+echo "   3. Codex now has 21 Maestro MCP tools (auto-approved)"
 echo "   4. Say: 'list my projects' or 'onboard a new project'"
 echo "   5. Start the dashboard: bin/dashboard.sh"
 echo ""

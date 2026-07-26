@@ -3,4 +3,4 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PYTHONPATH="$ROOT_DIR/tooling${PYTHONPATH:+:$PYTHONPATH}" \
-  python3 "$ROOT_DIR/tooling/register_project.py" "$@"
+  exec "$ROOT_DIR/bin/python.sh" "$ROOT_DIR/tooling/register_project.py" "$@"
