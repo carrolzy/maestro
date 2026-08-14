@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "tier_order": ["L0", "L1", "L2", "L3"],
+  "tiers": {
+    "L0": {
+      "label": "快速通道",
+      "required_steps": ["readonly_preflight", "focused_edit", "focused_verification"],
+      "skipped_steps": ["branch", "task_package", "change_spec", "spec_gate", "writeback"]
+    },
+    "L1": {
+      "label": "标准通道",
+      "required_steps": ["necessary_context", "branch", "implementation", "verification", "documentation_impact"],
+      "skipped_steps": ["task_package", "change_spec", "spec_gate", "writeback"]
+    },
+    "L2": {
+      "label": "治理通道",
+      "required_steps": ["branch", "task_package", "change_spec", "approval", "spec_gate", "implementation", "full_verification", "documentation_impact", "writeback"],
+      "skipped_steps": []
+    },
+    "L3": {
+      "label": "严格治理",
+      "required_steps": ["branch", "task_package", "change_spec", "approval", "spec_gate", "risk_confirmation", "implementation", "full_verification", "documentation_impact", "writeback"],
+      "skipped_steps": []
+    }
+  },
+  "defaults": {
+    "unconfigured_project_min_tier": "L1",
+    "uncertainty_min_tier": "L1",
+    "missing_verification_min_tier": "L1",
+    "target_overlap_min_tier": "L1"
+  },
+  "confidence_rules": {
+    "automatic_fast_path": "high",
+    "confirmation_required": ["medium", "low"]
+  },
+  "routing_constraints": {
+    "monotonic_upgrade_only": true,
+    "policy_layers_can_only_raise": true
+  },
+  "global_risks": {
+    "authentication": {"min_tier": "L2", "hard_veto_l0": true},
+    "authorization_change": {"min_tier": "L3", "hard_veto_l0": true},
+    "privacy_or_secret": {"min_tier": "L3", "hard_veto_l0": true},
+    "transaction": {"min_tier": "L2", "hard_veto_l0": true},
+    "shared_state": {"min_tier": "L2", "hard_veto_l0": true},
+    "public_api_or_request": {"min_tier": "L2", "hard_veto_l0": true},
+    "routing_or_build_config": {"min_tier": "L2", "hard_veto_l0": true},
+    "dependency_change": {"min_tier": "L2", "hard_veto_l0": true},
+    "public_component": {"min_tier": "L2", "hard_veto_l0": true},
+    "production_operation": {"min_tier": "L3", "hard_veto_l0": true},
+    "destructive_data_operation": {"min_tier": "L3", "hard_veto_l0": true},
+    "deployment_or_remote_push": {"min_tier": "L3", "hard_veto_l0": true},
+    "ambiguous_requirement": {"min_tier": "L1", "hard_veto_l0": true},
+    "target_file_overlap": {"min_tier": "L1", "hard_veto_l0": true},
+    "global_or_common_file": {"min_tier": "L1", "hard_veto_l0": true}
+  }
+}
