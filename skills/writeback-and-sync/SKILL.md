@@ -1,6 +1,6 @@
 ---
 name: writeback-and-sync
-description: Use when non-trivial project work is finishing and the result should be archived into Obsidian and mirrored into local project memory, especially after implementation, debugging, investigation, or workflow changes that would be useful to future tasks.
+description: Use when route_task has selected Maestro L2 or L3 and completed project work should be archived into Obsidian and mirrored into local memory, or when the user explicitly asks to document, archive, sync, or preserve a result.
 ---
 
 # Writeback And Sync
@@ -13,9 +13,17 @@ It is a closeout orchestration skill.
 It should decide whether write-back is warranted, ensure the note shape is acceptable, invoke the local write-back wrapper, and report the synced result.
 It should not reimplement note sync logic inside the skill.
 
+## 等级适用
+
+以 `route_task` 返回等级为准：
+
+- L0/L1 默认跳过本 Skill，除非用户明确要求归档，或结果形成了应长期保留的稳定规则。
+- L2/L3 默认执行写回与同步；L3 的外部副作用确认必须在写入前完成。
+- 任何等级都不得把噪声、未验证结论或完整敏感 Prompt 写入持久记忆。
+
 ## Use This Skill When
 
-- non-trivial implementation work is finishing
+- `route_task` selected L2 or L3 and implementation is finishing
 - a debugging path, design decision, or reusable fix should be archived
 - the user asks to document, archive, sync, or write back the result
 - a project in automation mode expects write-back by default

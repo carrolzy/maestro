@@ -1,6 +1,6 @@
 ---
 name: verification-before-close
-description: Use when implementation or analysis is about to be declared complete for a registered project and verification, task state, or closeout status still needs to be made explicit. Also use when automation mode requires a task to record verified, pending-closeout, or closed state before completion claims.
+description: Use when a Maestro L1, L2, or L3 task is about to be declared complete and verification evidence, documentation impact, task state, or closeout status must be made explicit, or when the user requests lifecycle-state recording.
 ---
 
 # Verification Before Close
@@ -12,6 +12,14 @@ This skill enforces the local rule that a task should not be treated as done unt
 It is a verification and lifecycle-state skill.
 It should determine what must be verified, capture whether verification happened, update task-run state, and distinguish verified work from fully closed work.
 It should not pretend that closeout is complete when write-back or sync is still pending.
+
+## 等级适用
+
+读取 `route_task` 结果，不得自行调整等级：
+
+- L0 不创建生命周期记录，但仍必须在任务内完成针对性验证并报告证据。
+- L1 运行验证、工作区卫生和文档影响检查；默认不要求知识写回。
+- L2/L3 执行完整验证、文档影响检查、知识写回与关闭流程；L3 还要确认额外人工审批已完成。
 
 ## Use This Skill When
 
@@ -30,6 +38,8 @@ Do not use this skill for:
 
 - `project`
 - `task-slug`
+- `governance-tier`
+- `documentation-impact`
 
 Optional inputs:
 
@@ -62,11 +72,15 @@ Use these sources:
    - command run
    - manual check result
    - explicit verification note
-4. Decide the current lifecycle state:
+4. 检查 `documentation_impact`：
+   - 值为本次已更新的 README / 使用文档 / 架构文档文件列表；或
+   - 值为 `not_needed`，并附上不改变用户使用方式、公共行为或配置的理由。
+   - L1、L2、L3 缺少该字段或理由时不得关闭。
+5. Decide the current lifecycle state:
    - `verified` if implementation-level verification is complete
    - `pending-closeout` if implementation is done but write-back or sync is still pending
    - `closed` only if verification and required closeout are both complete
-5. Workspace hygiene check (before `closed`):
+6. Workspace hygiene check (before `closed`):
    - list helper files this task created in the business repo (test probes,
      debug scripts, one-off verification files)
    - each must be either registered via `register_temp_file` (with a TTL),
@@ -77,8 +91,8 @@ Use these sources:
      (-fix/-final/-v2/date) block `closed` — merge into the canonical test
      file or move to scratch (`audit_tests` reports offenders)
    - see the `workspace-hygiene` skill for placement rules
-6. Update the task-run state with `tooling/update_task_run_state.py`.
-7. Report the current state and what remains before full closeout.
+7. Update the task-run state with `tooling/update_task_run_state.py`.
+8. Report the current state and what remains before full closeout.
 
 ## Verification Basis
 
@@ -130,6 +144,7 @@ Return a short summary with:
 
 - what was verified
 - what evidence exists
+- `documentation_impact` and its file list or `not_needed` reason
 - which lifecycle state was recorded
 - what remains before full closeout, if anything
 - the path to the updated `status.json`

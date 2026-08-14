@@ -1,6 +1,6 @@
 ---
 name: memory-read-first
-description: Use when a non-trivial task for a registered project needs prior context before implementation or analysis starts, especially for bugfixes, refactors, feature work, or investigations where project cards, prior cases, reusable patterns, or standing rules may reduce repeated explanation.
+description: Use when route_task has selected Maestro L1, L2, or L3 for a registered project and prior project context may affect implementation or analysis, especially for bugs, refactors, features, investigations, shared state, or known project risks.
 ---
 
 # Memory Read First
@@ -13,10 +13,18 @@ It is a read-order and summarization skill.
 It should gather the minimum high-signal project context before work starts.
 It should not invent retrieval logic that does not exist locally.
 
+## 等级适用
+
+以 `route_task` 返回等级为准：
+
+- L0 跳过本 Skill，不为局部低风险任务加载完整项目记忆。
+- L1 只读取必要上下文：`business-context.md`、`project-override.md`，以及最多 1 个与当前风险直接相关的案例。
+- L2/L3 执行下面的完整读取顺序；L3 不因上下文充分而降低安全确认要求。
+
 ## Use This Skill When
 
 - the user asks for a bugfix, refactor, feature, investigation, or architecture adjustment in a registered project
-- the task is non-trivial
+- `route_task` selected L1, L2, or L3
 - the project already has cards or memory
 - prior incidents or standing rules may affect the current task
 
@@ -52,7 +60,7 @@ Do not skip directly to patterns or rules before project-specific context is rea
 
 ## Required Workflow
 
-1. Confirm the project exists under `projects/`.
+1. Confirm the project exists under `projects/` and read the `route_task` tier.
 2. Read `projects/<project>/business-context.md`.
 3. Read `projects/<project>/project-override.md`.
 4. Read the most recent project cases if they exist.

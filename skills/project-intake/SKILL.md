@@ -1,6 +1,6 @@
 ---
 name: project-intake
-description: Use when a new requirement for a registered project is about to enter implementation, especially when the worker needs to assemble project context, memory, and a task package before coding starts. Also use when a project is in automation mode and implementation must not begin without a generated task package.
+description: Use when route_task has selected Maestro L2 or L3 for a registered-project requirement, or when the user explicitly requests a task package, Project Baseline, Change Spec, approval record, or Spec Gate before implementation.
 ---
 
 # Project Intake
@@ -15,12 +15,18 @@ This skill is an orchestration layer.
 It should read project context, invoke the existing builder, and summarize the result.
 It should not reimplement task-package logic inside the skill.
 
+## 等级适用
+
+必须服从 `route_task` 结果，不得自行降低等级：
+
+- L0/L1 不运行本 Skill；L0 走快速修改与针对性验证，L1 只读取必要上下文并正常实现、验证。
+- L2/L3 必须运行本 Skill，生成任务包并完成 Change Spec、明确审批和 Spec Gate。
+- L3 在 L2 流程之外仍需执行路由结果指定的额外人工确认。
+
 ## Use This Skill When
 
-- the user gives a new feature, bugfix, or refactor requirement for a registered project
-- implementation is about to begin
-- the task is non-trivial and should have a structured package first
-- the project has automation-mode rules that require task packaging before coding
+- `route_task` 返回 L2 或 L3
+- the user explicitly requests a task package or Spec Coding artifact
 
 Do not use this skill for:
 
@@ -73,11 +79,11 @@ Your job is to ensure the task does not skip the intake boundary.
    - keep business repositories free of temporary dev-docs
    - include resolved decisions, open questions, affected files, API expectations, and verification focus
 4. If a development technical document already exists, pass it to the builder with `--dev-doc-path`.
-5. If the project requires task packaging before implementation, treat package generation as mandatory.
+5. For L2/L3, treat package generation as mandatory before implementation.
 6. Run the builder through `tooling/build_task_package.py`.
 7. Surface the output directory.
 8. Read the generated `package.json` and `package.md`, including `project_baseline` and `change_spec` state.
-9. For non-trivial implementation, use the Spec Coding MCP tools in this order before any business-code edit:
+9. For L2/L3 implementation, use the Spec Coding MCP tools in this order before any business-code edit:
    - call `get_project_baseline` and use only its evidenced project rules;
    - select the governance tier and profile explicitly; do not lower the tier yourself;
    - create a Draft with `create_change_spec`, naming allowed files, behavior changes, non-goals, tasks, acceptance criteria, verification, and technical approach;
