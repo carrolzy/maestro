@@ -1,5 +1,7 @@
 import importlib
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -65,6 +67,177 @@ class TaskRoutingPolicyTests(unittest.TestCase):
 
                 with self.assertRaisesRegex(ValueError, expected_error):
                     task_router.load_routing_policy(path)
+
+
+class TaskRoutingDecisionTests(unittest.TestCase):
+    def _seed_project(self, root: Path, *, configured: bool = True) -> tuple[Path, Path]:
+        repository_root = Path(__file__).resolve().parents[2]
+        (root / "base").mkdir(parents=True)
+        shutil.copyfile(
+            repository_root / "base" / "task-routing-policy.json",
+            root / "base" / "task-routing-policy.json",
+        )
+        project_dir = root / "projects" / "alpha"
+        project_dir.mkdir(parents=True)
+        if configured:
+            (project_dir / "playbook.json").write_text(
+                json.dumps({"routing": {"fast_path_signals": ["local_scoped_style"]}}),
+                encoding="utf-8",
+            )
+
+        repo_root = root / "repo"
+        (repo_root / "src").mkdir(parents=True)
+        (repo_root / "src" / "card.vue").write_text("<style scoped></style>\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo_root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Routing Test"], cwd=repo_root, check=True)
+        subprocess.run(["git", "config", "user.email", "routing@example.com"], cwd=repo_root, check=True)
+        subprocess.run(["git", "add", "src/card.vue"], cwd=repo_root, check=True)
+        subprocess.run(["git", "commit", "-m", "seed"], cwd=repo_root, check=True, capture_output=True)
+        return root, repo_root
+
+    def test_local_scoped_style_routes_to_high_confidence_l0(self) -> None:
+        task_router = importlib.import_module("task_router")
+        route_task = getattr(task_router, "route_task", None)
+        self.assertTrue(callable(route_task), "route_task must be callable")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root, repo_root = self._seed_project(Path(tmp_dir))
+            result = route_task(
+                system_root=system_root,
+                project="alpha",
+                requirement="调整卡片局部间距",
+                repo_root=repo_root,
+                candidate_files=["src/card.vue"],
+                observed_signals=["local_scoped_style"],
+                uncertainties=[],
+                requested_actions=[],
+            )
+
+        self.assertEqual(result["tier"], "L0")
+        self.assertEqual(result["confidence"], "high")
+        self.assertEqual(result["risk_hits"], [])
+        self.assertFalse(result["requires_user_confirmation"])
+        self.assertIn("focused_verification", result["required_steps"])
+        self.assertIn("branch", result["skipped_steps"])
+        self.assertIn("change_spec", result["skipped_steps"])
+
+    def test_global_hard_risks_raise_the_minimum_tier(self) -> None:
+        task_router = importlib.import_module("task_router")
+        cases = (
+            ("transaction", [], "L2", "change_spec"),
+            ("local_scoped_style", ["production_operation"], "L3", "risk_confirmation"),
+        )
+
+        for signal, requested_actions, expected_tier, expected_step in cases:
+            with self.subTest(expected_tier=expected_tier), tempfile.TemporaryDirectory() as tmp_dir:
+                system_root, repo_root = self._seed_project(Path(tmp_dir))
+                result = task_router.route_task(
+                    system_root=system_root,
+                    project="alpha",
+                    requirement="快速调整目标行为",
+                    repo_root=repo_root,
+                    candidate_files=["src/card.vue"],
+                    observed_signals=[signal],
+                    uncertainties=[],
+                    requested_actions=requested_actions,
+                )
+
+            self.assertEqual(result["tier"], expected_tier)
+            self.assertIn(expected_step, result["required_steps"])
+            self.assertTrue(result["hard_vetoes"])
+            self.assertTrue(result["requires_user_confirmation"])
+
+    def test_unconfigured_or_uncertain_tasks_cannot_enter_l0(self) -> None:
+        task_router = importlib.import_module("task_router")
+        cases = (
+            (False, [], "medium", "unconfigured_project"),
+            (True, ["目标组件是否为公共组件尚未确认"], "low", "ambiguous_requirement"),
+        )
+
+        for configured, uncertainties, expected_confidence, expected_risk in cases:
+            with self.subTest(expected_risk=expected_risk), tempfile.TemporaryDirectory() as tmp_dir:
+                system_root, repo_root = self._seed_project(Path(tmp_dir), configured=configured)
+                result = task_router.route_task(
+                    system_root=system_root,
+                    project="alpha",
+                    requirement="调整卡片局部间距",
+                    repo_root=repo_root,
+                    candidate_files=["src/card.vue"],
+                    observed_signals=["local_scoped_style"],
+                    uncertainties=uncertainties,
+                    requested_actions=[],
+                )
+
+            self.assertEqual(result["tier"], "L1")
+            self.assertEqual(result["confidence"], expected_confidence)
+            self.assertIn(expected_risk, result["risk_hits"])
+            self.assertTrue(result["requires_user_confirmation"])
+
+    def test_global_files_and_expanded_scope_block_the_fast_path(self) -> None:
+        task_router = importlib.import_module("task_router")
+        cases = (
+            (["common/theme.css"], "global_or_common_file"),
+            (["src/card.vue", "src/card.scss", "src/card.test.js"], "scope_exceeds_fast_path"),
+        )
+
+        for candidate_files, expected_risk in cases:
+            with self.subTest(expected_risk=expected_risk), tempfile.TemporaryDirectory() as tmp_dir:
+                system_root, repo_root = self._seed_project(Path(tmp_dir))
+                result = task_router.route_task(
+                    system_root=system_root,
+                    project="alpha",
+                    requirement="调整局部样式",
+                    repo_root=repo_root,
+                    candidate_files=candidate_files,
+                    observed_signals=["local_scoped_style"],
+                    uncertainties=[],
+                    requested_actions=[],
+                )
+
+            self.assertEqual(result["tier"], "L1")
+            self.assertIn(expected_risk, result["risk_hits"])
+            self.assertIn(expected_risk, result["hard_vetoes"])
+
+    def test_dirty_candidate_file_blocks_l0(self) -> None:
+        task_router = importlib.import_module("task_router")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root, repo_root = self._seed_project(Path(tmp_dir))
+            (repo_root / "src" / "card.vue").write_text("<style scoped>.card { gap: 8px; }</style>\n", encoding="utf-8")
+
+            result = task_router.route_task(
+                system_root=system_root,
+                project="alpha",
+                requirement="调整卡片局部间距",
+                repo_root=repo_root,
+                candidate_files=["src/card.vue"],
+                observed_signals=["local_scoped_style"],
+                uncertainties=[],
+                requested_actions=[],
+            )
+
+        self.assertEqual(result["tier"], "L1")
+        self.assertIn("target_file_overlap", result["risk_hits"])
+        self.assertTrue(result["requires_user_confirmation"])
+
+    def test_rerouting_never_downgrades_the_current_tier(self) -> None:
+        task_router = importlib.import_module("task_router")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root, repo_root = self._seed_project(Path(tmp_dir))
+            result = task_router.route_task(
+                system_root=system_root,
+                project="alpha",
+                requirement="范围收敛为局部样式",
+                repo_root=repo_root,
+                candidate_files=["src/card.vue"],
+                observed_signals=["local_scoped_style"],
+                uncertainties=[],
+                requested_actions=[],
+                current_tier="L2",
+            )
+
+        self.assertEqual(result["tier"], "L2")
+        self.assertIn("change_spec", result["required_steps"])
+        self.assertNotIn("change_spec", result["skipped_steps"])
 
 
 if __name__ == "__main__":
