@@ -9,6 +9,7 @@ They are the system-owned drafts that define the intended long-term workflow bou
 
 **Lifecycle skills** (task entry/exit discipline):
 
+- `task-routing`
 - `project-intake`
 - `memory-read-first`
 - `writeback-and-sync`
@@ -24,23 +25,23 @@ They are the system-owned drafts that define the intended long-term workflow bou
 - `test-driven-development`
 - `systematic-debugging`
 
-## Why These Four
+## Why This Stack
 
-These four skills map directly onto the core workflow defined in the root `README.md`:
+These skills map directly onto the core workflow defined in the root `README.md`:
 
-1. build a task package before implementation
-2. read project memory before non-trivial work
+1. select the minimum safe L0-L3 governance tier
+2. build a task package and read memory when the selected tier requires them
 3. verify before claiming completion
-4. write back and sync durable knowledge
+4. write back and sync durable knowledge for governed work
 
 Together they convert the current process from “documented expectations” into “reusable orchestration units.”
 
 ## Execution Order
 
-For a normal non-trivial project task, use the stack in this order:
+For a project task, use the stack in this order:
 
-1. `project-intake`
-2. `memory-read-first`
+1. `task-routing`
+2. `project-intake` and `memory-read-first` when required by the selected tier
 3. `brainstorming` — when the requirement is rough or has design choices
 4. `writing-plans` — when the work is multi-step
 5. implementation work:
@@ -56,6 +57,21 @@ Steps 3-4 are skippable for trivial, single-step, fully-specified changes —
 each methodology skill states its own skip conditions.
 
 ## Role Of Each Skill
+
+### `task-routing`
+
+Purpose:
+
+- run a low-cost read-only preflight before lifecycle work
+- select the minimum safe L0-L3 tier from global, project-type, project, and runtime facts
+- keep small low-risk work out of unnecessary task-package and Change Spec flows
+- re-route only upward when implementation scope expands
+
+Primary backend:
+
+- `tooling/task_router.py`
+- MCP `route_task`
+- `base/task-routing-policy.json`
 
 ### `project-intake`
 
@@ -253,6 +269,7 @@ Behavior:
 ## File Map
 
 - `skills/project-intake/SKILL.md`
+- `skills/task-routing/SKILL.md`
 - `skills/memory-read-first/SKILL.md`
 - `skills/writeback-and-sync/SKILL.md`
 - `skills/verification-before-close/SKILL.md`

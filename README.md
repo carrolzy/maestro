@@ -21,8 +21,8 @@ Everything runs on your machine.
 | **Memory system** | Layered memory (project cards, cases, patterns, rules) that the model reads before work and writes back after. |
 | **Task packaging** | Build a self-contained task brief from project context + requirement text — injectable into any model prompt. |
 | **Spec Coding** | Create explicit Change Specs with allowed scope, non-goals, acceptance criteria, human approval, and an implementation-entry gate. |
-| **MCP tool layer** | 26 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
-| **Provider adapters** | Same 26 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
+| **MCP tool layer** | 27 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
+| **Provider adapters** | Same 27 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
 | **Workflow engine** | Deterministic DAG executor — define steps with dependencies, the engine runs them in parallel with lifecycle state tracking, verification gates, and retries. |
 | **Visual dashboard** | Single-page web UI — browse projects, invoke tools, run workflows, search memory. All clickable, zero CLI memorization. |
 
@@ -45,7 +45,7 @@ cd maestro
 bin/setup-claude.sh
 ```
 
-The setup script auto-detects your Python, installs all 12 Maestro skills,
+The setup script auto-detects your Python, installs all 13 Maestro skills,
 creates `.mcp.json` for MCP tool access, and runs a health check. **You're
 done.** Restart Claude Code and you can immediately say "list my projects" or
 "onboard a new project."
@@ -175,7 +175,7 @@ previous ones.
 │  tool_registry.py (canonical specs)                 │
 ├─────────────────────────────────────────────────────┤
 │  Phase 1 — MCP Tool Layer                           │
-│  ai_efficiency_mcp_server.py (26 tools, schemas)    │
+│  ai_efficiency_mcp_server.py (27 tools, schemas)    │
 │  context_pack.py (raw-API context injection)        │
 ├─────────────────────────────────────────────────────┤
 │  Phase 0 — Reusable Asset Library                   │
@@ -204,7 +204,7 @@ maestro/
 │   └── provider-tools.sh         #   Provider-native tool declarations
 │
 ├── tooling/                      # Core engine (pure Python, zero deps)
-│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (26 tools)
+│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (27 tools)
 │   ├── tool_registry.py          #   Canonical tool specs (single source of truth)
 │   ├── adapters/                 #   Per-provider format translators
 │   │   ├── openai.py / anthropic.py / gemini.py / base.py
@@ -261,7 +261,7 @@ maestro/
 
 ## Tools Reference
 
-These 26 tools are available via MCP, provider adapters, dashboard, and API:
+These 27 tools are available via MCP, provider adapters, dashboard, and API:
 
 | Tool | Description |
 |---|---|
