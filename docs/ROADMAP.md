@@ -236,19 +236,19 @@ tasks.
   content, routing targets); 272 total green.
 
 ### P1 — Methodology skill layer ✅
-- Gap identified against Superpowers (the 2026 benchmark for agentic dev
-  methodology): Maestro's skills disciplined task *entry* (intake, memory
-  read) and *exit* (verification, write-back) but left the implementation
-  process in between unconstrained. Four new markdown-only skills close it:
+- Gap identified in the implementation methodology: Maestro's skills
+  disciplined task *entry* (intake, memory read) and *exit* (verification,
+  write-back) but left the implementation process in between unconstrained.
+  Four new markdown-only skills close it:
 - ✅ `brainstorming`: pre-code design refinement — one-question-at-a-time
   with options, honest alternatives, section-by-section confirmation; saves
-  a design doc to `docs/superpowers/specs/`. Grounded in memory-read-first
-  and agentic-search before asking.
+  a design doc under `projects/<project>/dev-docs/`. Grounded in
+  memory-read-first and agentic-search before asking.
 - ✅ `writing-plans`: decomposes a confirmed design into small independently
   verifiable tasks (exact files + change description + verification command
   + dependencies); reality-checks the design against live code first; plan
-  doc in `docs/superpowers/plans/`; execution contract = verify each task
-  before the next.
+  doc under `projects/<project>/dev-docs/`; execution contract = verify each
+  task before the next.
 - ✅ `test-driven-development`: red → green → refactor, strictly ordered;
   implementation-before-test is grounds to restart (a test that never failed
   proves nothing); permanent tests → suite, probes → scratch

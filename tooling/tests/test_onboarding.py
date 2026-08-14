@@ -21,7 +21,7 @@ from validate_project import validate_project
 def _seed_templates(root: Path) -> None:
     templates = root / "templates"
     templates.mkdir(parents=True, exist_ok=True)
-    for name in ("business-context", "project-override", "task-context"):
+    for name in ("business-context", "project-override", "task-context", "project-baseline"):
         (templates / f"{name}.md").write_text(f"# {name}\n\n## Section\n\nplaceholder\n", encoding="utf-8")
 
 
@@ -261,6 +261,7 @@ class OnboardProjectTests(unittest.TestCase):
             self.assertTrue((project_dir / "business-context.md").exists())
             self.assertTrue((project_dir / "project-override.md").exists())
             self.assertTrue((project_dir / "task-context.md").exists())
+            self.assertTrue((project_dir / "spec" / "project-baseline.md").exists())
             self.assertTrue((project_dir / "playbook.json").exists())
             self.assertTrue((project_dir / "business-card.json").exists())
             self.assertTrue(report["valid"])

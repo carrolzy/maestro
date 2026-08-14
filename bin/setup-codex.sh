@@ -83,11 +83,26 @@ startup_timeout_sec = 30.0
 [mcp_servers.maestro.env]
 PYTHONPATH = "$ROOT_DIR/tooling"
 
-# Auto-approve all 21 Maestro tools (they are local and safe)
+# Auto-approve all 26 Maestro tools (they are local and safe)
 [mcp_servers.maestro.tools.search_memory]
 approval_mode = "approve"
 
 [mcp_servers.maestro.tools.build_task_package]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.get_project_baseline]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.seed_project_baseline]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.create_change_spec]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.approve_change_spec]
+approval_mode = "approve"
+
+[mcp_servers.maestro.tools.spec_gate]
 approval_mode = "approve"
 
 [mcp_servers.maestro.tools.register_project]
@@ -168,7 +183,8 @@ TOOLEOF
 
 # Existing Maestro configurations need approval entries added as tools evolve.
 for tool_name in \
-  search_memory build_task_package register_project update_task_run_state \
+  search_memory build_task_package get_project_baseline seed_project_baseline \
+  create_change_spec approve_change_spec spec_gate register_project update_task_run_state \
   writeback_and_sync_memory doctor_local_skills validate_project list_project_types \
   run_workflow get_workflow_status resume_task handoff_task set_active_task \
   snapshot_task gc_artifacts register_temp_file grep_code glob_files \
@@ -263,7 +279,7 @@ echo ""
 echo "   Next steps:"
 echo "   1. Restart Codex (or open a new session)"
 echo "   2. Run /hooks in Codex and trust the Maestro checkpoint hook"
-echo "   3. Codex now has 21 Maestro MCP tools (auto-approved)"
+echo "   3. Codex now has 26 Maestro MCP tools (auto-approved)"
 echo "   4. Say: 'list my projects' or 'onboard a new project'"
 echo "   5. Start the dashboard: bin/dashboard.sh"
 echo ""

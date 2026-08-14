@@ -40,6 +40,10 @@ def _write_templates(system_root: Path) -> None:
         "# Task Context\n\n## Current Task\n\n## Why This Task Exists\n\n## Business Delta for This Task\n\n## Constraints for This Task\n\n## Verification Focus\n",
         encoding="utf-8",
     )
+    (templates_root / "project-baseline.md").write_text(
+        "# Project Baseline Spec: {{PROJECT_SLUG}}\n\n## Status\n\n- Needs Curation\n",
+        encoding="utf-8",
+    )
 
 
 class AiEfficiencyMcpServerTests(unittest.TestCase):
@@ -142,6 +146,7 @@ class AiEfficiencyMcpServerTests(unittest.TestCase):
             )
 
             self.assertTrue((system_root / "projects" / "sample-project" / "business-context.md").exists())
+            self.assertTrue((system_root / "projects" / "sample-project" / "spec" / "project-baseline.md").exists())
             self.assertEqual(
                 Path(response["result"]["structuredContent"]["project_dir"]).resolve(),
                 (system_root / "projects" / "sample-project").resolve(),
@@ -174,6 +179,54 @@ class AiEfficiencyMcpServerTests(unittest.TestCase):
             output_dir = Path(response["result"]["structuredContent"]["output_dir"])
             self.assertTrue((output_dir / "package.json").exists())
             self.assertEqual(response["result"]["structuredContent"]["package"]["project"], "alpha")
+
+    def test_spec_coding_tools_require_explicit_approval_before_gate_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            _write_project(system_root, "alpha", summary="Alpha project.")
+            _write_templates(system_root)
+            server = AiEfficiencyMcpServer(system_root=system_root)
+
+            seeded = server.call_tool("seed_project_baseline", {"project": "alpha"})
+            self.assertFalse(seeded["isError"], msg=seeded["content"])
+            packaged = server.invoke(
+                "build_task_package",
+                {"project": "alpha", "requirement": "Only update the refund quantity selector."},
+            )
+            created = server.invoke(
+                "create_change_spec",
+                {
+                    "project": "alpha",
+                    "package_dir": packaged["output_dir"],
+                    "title": "Refund quantity selector",
+                    "requirement": "Only update the refund quantity selector.",
+                    "governance_tier": "L2",
+                    "profile": "frontend",
+                    "allowed_files": [{"path": "src/refund-selector.vue", "reason": "Owns the local interaction."}],
+                    "allowed_behaviors": ["Clamp the displayed quantity to the supported range."],
+                    "non_goals": ["Do not change cart or API modules."],
+                    "acceptance_criteria": ["Input and buttons respect the quantity boundaries."],
+                    "tasks": [{"id": "T1", "outcome": "Update selector", "allowed_files": ["src/refund-selector.vue"], "acceptance_criteria": ["AC1"]}],
+                    "verification": {"automated": ["npm run type-check"], "manual": [], "regression": []},
+                    "technical_approach": "Keep state local to the selector and reuse its current normalizer.",
+                },
+            )
+
+            blocked = server.invoke("spec_gate", {"spec_path": created["spec_path"]})
+            approved = server.invoke(
+                "approve_change_spec",
+                {
+                    "spec_path": created["spec_path"],
+                    "approver": "apple",
+                    "source_reference": "2026-08-04 reviewed requirement",
+                },
+            )
+            passed = server.invoke("spec_gate", {"spec_path": created["spec_path"]})
+
+            self.assertFalse(blocked["passed"])
+            self.assertIn("missing explicit approval", blocked["blockers"])
+            self.assertEqual(approved["approval"]["approver"], "apple")
+            self.assertTrue(passed["passed"])
 
     def test_tools_call_writeback_and_sync_memory_writes_note_and_case(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

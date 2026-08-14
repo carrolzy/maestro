@@ -59,9 +59,11 @@ If a task cannot be verified without finishing three other tasks, restructure.
    `run_workflow` steps later.
 5. End the plan with a **final verification** section: full test suite,
    preflight, and any end-to-end check from the design's verification plan.
-6. Save to `docs/superpowers/plans/<date>-<slug>-implementation-plan.md`
-   (Maestro work) or the project's equivalent. Present the task list summary
-   to the user for approval before implementation begins.
+6. For a registered project, save to
+   `projects/<project>/dev-docs/<date>-<slug>-implementation-plan.md` in the
+   AI efficiency system root. Do not create process documents in the business
+   repository. Present the task list summary to the user for approval before
+   implementation begins.
 
 ## Plan Document Skeleton
 

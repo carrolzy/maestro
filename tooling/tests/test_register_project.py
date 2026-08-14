@@ -20,6 +20,14 @@ def _write_templates(system_root: Path) -> None:
         "# Task Context\n\n## Current Task\n\n## Why This Task Exists\n\n## Business Delta for This Task\n\n## Constraints for This Task\n\n## Verification Focus\n",
         encoding="utf-8",
     )
+    (templates_root / "agents.md").write_text(
+        "<!-- maestro:managed:start -->\nproject={{PROJECT_SLUG}}\nroot={{MAESTRO_ROOT}}\n<!-- maestro:managed:end -->\n",
+        encoding="utf-8",
+    )
+    (templates_root / "project-baseline.md").write_text(
+        "# Project Baseline Spec: {{PROJECT_SLUG}}\n\n## Status\n\n- Needs Curation\n\n## Evidence Sources\n\n- `business-context.md`\n- `project-override.md`\n- `task-context.md`\n",
+        encoding="utf-8",
+    )
 
 
 class RegisterProjectTests(unittest.TestCase):
@@ -38,6 +46,45 @@ class RegisterProjectTests(unittest.TestCase):
             self.assertTrue((project_dir / "business-context.md").exists())
             self.assertTrue((project_dir / "project-override.md").exists())
             self.assertTrue((project_dir / "task-context.md").exists())
+
+    def test_register_project_seeds_project_baseline_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            _write_templates(system_root)
+
+            project_dir = register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Sample project summary.",
+            )
+
+            baseline = project_dir / "spec" / "project-baseline.md"
+            self.assertTrue(baseline.exists())
+            content = baseline.read_text(encoding="utf-8")
+            self.assertIn("# Project Baseline Spec: sample-project", content)
+            self.assertIn("Needs Curation", content)
+
+    def test_force_registration_preserves_existing_project_baseline_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            _write_templates(system_root)
+            project_dir = register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Sample project summary.",
+            )
+            baseline = project_dir / "spec" / "project-baseline.md"
+            baseline.parent.mkdir(parents=True, exist_ok=True)
+            baseline.write_text("# Curated baseline\n\nDo not replace.\n", encoding="utf-8")
+
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Replacement summary.",
+                force=True,
+            )
+
+            self.assertEqual(baseline.read_text(encoding="utf-8"), "# Curated baseline\n\nDo not replace.\n")
 
     def test_register_project_rejects_malformed_slug(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -104,6 +151,80 @@ class RegisterProjectTests(unittest.TestCase):
             self.assertIn("Chrome plugin for internal capture work.", business_context)
             self.assertIn("chrome-extension", task_context)
 
+    def test_register_project_writes_managed_agents_workflow_to_business_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            repo_root = Path(tmp_dir) / "business-repo"
+            repo_root.mkdir()
+            _write_templates(system_root)
+
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Sample project summary.",
+                repo_root=repo_root,
+            )
+
+            agents_file = repo_root / "AGENTS.md"
+            self.assertTrue(agents_file.exists())
+            content = agents_file.read_text(encoding="utf-8")
+            self.assertIn("project=sample-project", content)
+            self.assertIn(f"root={system_root.resolve()}", content)
+
+    def test_existing_project_can_attach_or_update_managed_agents_block_without_force(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            repo_root = Path(tmp_dir) / "business-repo"
+            repo_root.mkdir()
+            (repo_root / "AGENTS.md").write_text("# User rules\n\nKeep this content.\n", encoding="utf-8")
+            _write_templates(system_root)
+
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Sample project summary.",
+            )
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Ignored during attach.",
+                repo_root=repo_root,
+            )
+
+            content = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("# User rules", content)
+            self.assertIn("Keep this content.", content)
+            self.assertEqual(content.count("<!-- maestro:managed:start -->"), 1)
+
+    def test_existing_managed_block_is_replaced_without_duplicating_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            repo_root = Path(tmp_dir) / "business-repo"
+            repo_root.mkdir()
+            _write_templates(system_root)
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Sample project summary.",
+            )
+            (repo_root / "AGENTS.md").write_text(
+                "# User rules\n\n<!-- maestro:managed:start -->\nold\n<!-- maestro:managed:end -->\n\nKeep this content.\n",
+                encoding="utf-8",
+            )
+
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Ignored during attach.",
+                repo_root=repo_root,
+            )
+
+            content = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertNotIn("\nold\n", content)
+            self.assertIn("project=sample-project", content)
+            self.assertIn("Keep this content.", content)
+            self.assertEqual(content.count("<!-- maestro:managed:start -->"), 1)
+
     def test_cli_register_project_writes_project_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             system_root = Path(tmp_dir)
@@ -118,4 +239,3 @@ class RegisterProjectTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(output_path.read_text(encoding="utf-8"), f"{system_root / 'projects' / 'sample-project'}\n")
-

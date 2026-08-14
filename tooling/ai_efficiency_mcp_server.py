@@ -18,6 +18,7 @@ from local_skills_doctor import assess_local_skills
 from project_types import list_project_types
 from register_project import register_project
 from search_memory import search_memory
+from spec_coding import approve_change_spec, create_change_spec, get_project_baseline, seed_project_baseline, spec_gate
 from task_package_builder import build_task_package
 from temp_registry import refresh_task_temp_files, register_temp_file
 from test_doctor import audit_tests
@@ -56,6 +57,11 @@ class AiEfficiencyMcpServer:
         self._tools: dict[str, Callable[[JsonDict], JsonDict]] = {
             "search_memory": self._call_search_memory,
             "build_task_package": self._call_build_task_package,
+            "get_project_baseline": self._call_get_project_baseline,
+            "seed_project_baseline": self._call_seed_project_baseline,
+            "create_change_spec": self._call_create_change_spec,
+            "approve_change_spec": self._call_approve_change_spec,
+            "spec_gate": self._call_spec_gate,
             "register_project": self._call_register_project,
             "update_task_run_state": self._call_update_task_run_state,
             "writeback_and_sync_memory": self._call_writeback_and_sync_memory,
@@ -177,6 +183,53 @@ class AiEfficiencyMcpServer:
             force=bool(arguments.get("force", False)),
         )
         return {"project_dir": str(project_dir)}
+
+    def _call_get_project_baseline(self, arguments: JsonDict) -> JsonDict:
+        return get_project_baseline(
+            system_root=self.system_root,
+            project=_required_string(arguments, "project"),
+        )
+
+    def _call_seed_project_baseline(self, arguments: JsonDict) -> JsonDict:
+        path = seed_project_baseline(
+            system_root=self.system_root,
+            project=_required_string(arguments, "project"),
+        )
+        return {"path": str(path)}
+
+    def _call_create_change_spec(self, arguments: JsonDict) -> JsonDict:
+        return create_change_spec(
+            system_root=self.system_root,
+            project=_required_string(arguments, "project"),
+            package_dir=_required_path(arguments, "package_dir"),
+            title=_required_string(arguments, "title"),
+            requirement=_required_string(arguments, "requirement"),
+            governance_tier=_required_string(arguments, "governance_tier"),
+            profile=_required_string(arguments, "profile"),
+            allowed_files=_required_list(arguments, "allowed_files"),
+            allowed_behaviors=_required_list(arguments, "allowed_behaviors"),
+            non_goals=_required_list(arguments, "non_goals"),
+            acceptance_criteria=_required_list(arguments, "acceptance_criteria"),
+            tasks=_required_list(arguments, "tasks"),
+            verification=_required_dict(arguments, "verification"),
+            technical_approach=_required_string(arguments, "technical_approach"),
+            open_questions=_optional_list(arguments, "open_questions"),
+            safe_assumptions=_optional_list(arguments, "safe_assumptions"),
+        )
+
+    def _call_approve_change_spec(self, arguments: JsonDict) -> JsonDict:
+        return approve_change_spec(
+            system_root=self.system_root,
+            spec_path=_required_path(arguments, "spec_path"),
+            approver=_required_string(arguments, "approver"),
+            source_reference=_required_string(arguments, "source_reference"),
+        )
+
+    def _call_spec_gate(self, arguments: JsonDict) -> JsonDict:
+        return spec_gate(
+            system_root=self.system_root,
+            spec_path=_required_path(arguments, "spec_path"),
+        )
 
     def _call_update_task_run_state(self, arguments: JsonDict) -> JsonDict:
         runtime_root = _optional_path(arguments, "runtime_root") or (self.system_root / "runtime")
@@ -650,6 +703,29 @@ def _optional_path(arguments: JsonDict, key: str) -> Path | None:
 
 def _required_path(arguments: JsonDict, key: str) -> Path:
     return Path(_required_string(arguments, key)).expanduser().resolve()
+
+
+def _required_list(arguments: JsonDict, key: str) -> list[Any]:
+    value = arguments.get(key)
+    if isinstance(value, list):
+        return value
+    raise ValueError(f"Missing required array argument: {key}")
+
+
+def _optional_list(arguments: JsonDict, key: str) -> list[Any] | None:
+    value = arguments.get(key)
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    raise ValueError(f"{key} must be an array")
+
+
+def _required_dict(arguments: JsonDict, key: str) -> JsonDict:
+    value = arguments.get(key)
+    if isinstance(value, dict):
+        return value
+    raise ValueError(f"Missing required object argument: {key}")
 
 
 if __name__ == "__main__":

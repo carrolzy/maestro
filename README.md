@@ -20,8 +20,9 @@ Everything runs on your machine.
 | **Project onboarding** | Register any project with one command (or a web form). Auto-generates business context, playbook, and a machine-readable business card. |
 | **Memory system** | Layered memory (project cards, cases, patterns, rules) that the model reads before work and writes back after. |
 | **Task packaging** | Build a self-contained task brief from project context + requirement text — injectable into any model prompt. |
-| **MCP tool layer** | 21 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
-| **Provider adapters** | Same 21 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
+| **Spec Coding** | Create explicit Change Specs with allowed scope, non-goals, acceptance criteria, human approval, and an implementation-entry gate. |
+| **MCP tool layer** | 26 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
+| **Provider adapters** | Same 26 tools in OpenAI, DeepSeek, Anthropic, and Gemini native function-calling formats. Thin translators, zero business logic. |
 | **Workflow engine** | Deterministic DAG executor — define steps with dependencies, the engine runs them in parallel with lifecycle state tracking, verification gates, and retries. |
 | **Visual dashboard** | Single-page web UI — browse projects, invoke tools, run workflows, search memory. All clickable, zero CLI memorization. |
 
@@ -174,7 +175,7 @@ previous ones.
 │  tool_registry.py (canonical specs)                 │
 ├─────────────────────────────────────────────────────┤
 │  Phase 1 — MCP Tool Layer                           │
-│  ai_efficiency_mcp_server.py (21 tools, schemas)    │
+│  ai_efficiency_mcp_server.py (26 tools, schemas)    │
 │  context_pack.py (raw-API context injection)        │
 ├─────────────────────────────────────────────────────┤
 │  Phase 0 — Reusable Asset Library                   │
@@ -203,7 +204,7 @@ maestro/
 │   └── provider-tools.sh         #   Provider-native tool declarations
 │
 ├── tooling/                      # Core engine (pure Python, zero deps)
-│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (21 tools)
+│   ├── ai_efficiency_mcp_server.py  # MCP JSON-RPC server (26 tools)
 │   ├── tool_registry.py          #   Canonical tool specs (single source of truth)
 │   ├── adapters/                 #   Per-provider format translators
 │   │   ├── openai.py / anthropic.py / gemini.py / base.py
@@ -260,12 +261,17 @@ maestro/
 
 ## Tools Reference
 
-These 21 tools are available via MCP, provider adapters, dashboard, and API:
+These 26 tools are available via MCP, provider adapters, dashboard, and API:
 
 | Tool | Description |
 |---|---|
 | `search_memory` | Search project cards, cases, patterns, and rules |
 | `build_task_package` | Build a task brief from project context + requirement |
+| `get_project_baseline` | Read the durable project-level Spec baseline |
+| `seed_project_baseline` | Seed only a missing project baseline, preserving a curated one |
+| `create_change_spec` | Create a Draft Change Spec with explicit scope and non-goals |
+| `approve_change_spec` | Record named human approval with a traceable source |
+| `spec_gate` | Read-only check that blocks implementation until the contract is complete and approved |
 | `register_project` | Create a new project shell from templates |
 | `update_task_run_state` | Record task lifecycle state transitions |
 | `writeback_and_sync_memory` | Write a note into vault + sync to memory |

@@ -7,9 +7,9 @@ description: Use when a new requirement for a registered project is about to ent
 
 ## Overview
 
-This skill turns a new project requirement into a stable pre-execution artifact.
+This skill turns a new project requirement into a stable pre-execution artifact and, for non-trivial implementation, an approved Change Spec.
 
-Use it to enforce the local rule that non-trivial implementation should begin from a task package rather than from ad hoc chat context.
+Use it to enforce the local rule that non-trivial implementation should begin from a task package and a passing Spec Gate rather than from ad hoc chat context.
 
 This skill is an orchestration layer.
 It should read project context, invoke the existing builder, and summarize the result.
@@ -76,14 +76,22 @@ Your job is to ensure the task does not skip the intake boundary.
 5. If the project requires task packaging before implementation, treat package generation as mandatory.
 6. Run the builder through `tooling/build_task_package.py`.
 7. Surface the output directory.
-8. Read the generated `package.json` and `package.md`.
-9. Summarize only the highest-signal outputs:
+8. Read the generated `package.json` and `package.md`, including `project_baseline` and `change_spec` state.
+9. For non-trivial implementation, use the Spec Coding MCP tools in this order before any business-code edit:
+   - call `get_project_baseline` and use only its evidenced project rules;
+   - select the governance tier and profile explicitly; do not lower the tier yourself;
+   - create a Draft with `create_change_spec`, naming allowed files, behavior changes, non-goals, tasks, acceptance criteria, verification, and technical approach;
+   - preserve material uncertainty in `open_questions` and stop for clarification rather than turning it into an implementation decision;
+   - call `approve_change_spec` only after a human approval is explicitly supplied with an approver and source reference; never infer approval from the conversation;
+   - call `spec_gate`; a failed gate blocks implementation.
+10. Summarize only the highest-signal outputs:
    - suspected modules
    - recommended verification focus
    - risk flags
    - open questions
    - development technical document path when supplied
-10. If builder execution fails and packaging is mandatory, do not proceed into implementation.
+   - Change Spec path and gate result
+11. If builder execution fails, the Spec is incomplete, or the gate fails, do not proceed into implementation.
 
 ## Builder Command
 
@@ -116,11 +124,18 @@ The builder should emit:
 
 These are runtime artifacts, not Obsidian notes.
 
+For a governed task, the same directory also contains:
+
+- `spec.json` as the machine-authoritative Change Spec
+- `spec.md` as its rendered review document
+
 ## Response Contract
 
 After a successful run, report:
 
 - the generated package path
+- the Change Spec path and current status for non-trivial implementation
+- whether the Spec Gate passed; list blockers exactly when it did not
 - whether packaging is mandatory for this project
 - the development technical document path, if one was generated or supplied
 - the most relevant modules or files to inspect next
@@ -143,6 +158,12 @@ If builder output is incomplete:
 - stop implementation from proceeding under automation mode
 - say what is missing
 - do not fabricate package content manually
+
+If the Change Spec lacks scope, non-goals, acceptance criteria, an explicit approval record, or has unresolved material questions:
+
+- do not edit business code
+- state the exact missing field or gate blocker
+- request the smallest clarification needed; do not add a fallback or adjacent fix as a substitute
 
 If evidence is weak:
 

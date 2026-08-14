@@ -13,9 +13,11 @@ def register_project(
     summary: str,
     project_type: str | None = None,
     force: bool = False,
+    repo_root: Path | None = None,
 ) -> Path:
     _assert_valid_project_slug(project)
     project_dir = system_root / "projects" / project
+    resolved_repo_root = _resolve_repo_root(repo_root)
     canonical_files = {
         "business_context": project_dir / "business-context.md",
         "project_override": project_dir / "project-override.md",
@@ -23,7 +25,16 @@ def register_project(
     }
 
     if project_dir.exists() and not force:
-        raise FileExistsError(f"Project already exists: {project_dir}")
+        if resolved_repo_root is None:
+            raise FileExistsError(f"Project already exists: {project_dir}")
+        seed_project_baseline(system_root=system_root, project=project)
+        _write_managed_agents_file(
+            repo_root=resolved_repo_root,
+            template_path=system_root / "templates" / "agents.md",
+            project=project,
+            system_root=system_root,
+        )
+        return project_dir
 
     rendered = _render_project_files(
         templates_root=system_root / "templates",
@@ -35,6 +46,14 @@ def register_project(
     project_dir.mkdir(parents=True, exist_ok=True)
     for key, output_path in canonical_files.items():
         output_path.write_text(rendered[key], encoding="utf-8")
+    seed_project_baseline(system_root=system_root, project=project)
+    if resolved_repo_root is not None:
+        _write_managed_agents_file(
+            repo_root=resolved_repo_root,
+            template_path=system_root / "templates" / "agents.md",
+            project=project,
+            system_root=system_root,
+        )
     return project_dir
 
 
@@ -44,6 +63,7 @@ def main(argv: list[str] | None = None, system_root: Path | None = None, stdout_
     parser.add_argument("--summary", required=True)
     parser.add_argument("--project-type", default=None)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--repo-root", default=None, help="Business repository root where AGENTS.md is managed.")
     args = parser.parse_args(argv)
 
     resolved_system_root = system_root or Path(__file__).resolve().parent.parent
@@ -53,6 +73,7 @@ def main(argv: list[str] | None = None, system_root: Path | None = None, stdout_
         summary=args.summary,
         project_type=args.project_type,
         force=args.force,
+        repo_root=Path(args.repo_root) if args.repo_root else None,
     )
     _write_lines([str(project_dir)], stdout_path=stdout_path)
     return 0
@@ -61,6 +82,54 @@ def main(argv: list[str] | None = None, system_root: Path | None = None, stdout_
 def _assert_valid_project_slug(project: str) -> None:
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", project):
         raise ValueError(f"Invalid project slug: {project}")
+
+
+def seed_project_baseline(*, system_root: Path, project: str) -> Path:
+    _assert_valid_project_slug(project)
+    project_dir = system_root / "projects" / project
+    if not project_dir.is_dir():
+        raise ValueError(f"Unknown project: {project}")
+
+    baseline_path = project_dir / "spec" / "project-baseline.md"
+    _seed_project_baseline_if_missing(
+        baseline_path=baseline_path,
+        templates_root=system_root / "templates",
+        project=project,
+    )
+    return baseline_path
+
+
+def _resolve_repo_root(repo_root: Path | None) -> Path | None:
+    if repo_root is None:
+        return None
+    resolved = repo_root.expanduser().resolve()
+    if not resolved.is_dir():
+        raise ValueError(f"Business repository root does not exist or is not a directory: {resolved}")
+    return resolved
+
+
+def _write_managed_agents_file(*, repo_root: Path, template_path: Path, project: str, system_root: Path) -> None:
+    template = template_path.read_text(encoding="utf-8")
+    managed_block = template.replace("{{PROJECT_SLUG}}", project).replace("{{MAESTRO_ROOT}}", str(system_root.resolve())).strip()
+    start_marker = "<!-- maestro:managed:start -->"
+    end_marker = "<!-- maestro:managed:end -->"
+    if start_marker not in managed_block or end_marker not in managed_block:
+        raise ValueError(f"Invalid AGENTS template markers: {template_path}")
+
+    agents_path = repo_root / "AGENTS.md"
+    existing = agents_path.read_text(encoding="utf-8") if agents_path.exists() else ""
+    start = existing.find(start_marker)
+    end = existing.find(end_marker)
+    if start != -1 or end != -1:
+        if start == -1 or end == -1 or end < start:
+            raise ValueError(f"Malformed Maestro managed block in: {agents_path}")
+        end += len(end_marker)
+        content = existing[:start].rstrip() + "\n\n" + managed_block + "\n" + existing[end:].lstrip()
+    elif existing.strip():
+        content = existing.rstrip() + "\n\n" + managed_block + "\n"
+    else:
+        content = managed_block + "\n"
+    agents_path.write_text(content, encoding="utf-8")
 
 
 def _render_project_files(*, templates_root: Path, project: str, summary: str, project_type: str | None) -> dict[str, str]:
@@ -113,6 +182,15 @@ def _render_project_files(*, templates_root: Path, project: str, summary: str, p
     }
 
 
+def _seed_project_baseline_if_missing(*, baseline_path: Path, templates_root: Path, project: str) -> None:
+    if baseline_path.exists():
+        return
+
+    template = (templates_root / "project-baseline.md").read_text(encoding="utf-8")
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    baseline_path.write_text(template.replace("{{PROJECT_SLUG}}", project), encoding="utf-8")
+
+
 def _fill_template(template: str, section_map: dict[str, str]) -> str:
     lines = template.rstrip().splitlines()
     output_lines: list[str] = []
@@ -138,4 +216,3 @@ def _write_lines(lines: list[str], *, stdout_path: Path | None) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

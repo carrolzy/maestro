@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+from spec_coding import get_project_baseline
 from update_task_run_state import update_task_run_state
 from writeback_and_sync_memory import writeback_and_sync_memory
 
@@ -155,11 +156,25 @@ def build_task_package(
         "created_at": now.isoformat(timespec="seconds"),
         "project_type": _resolve_project_type(system_root=system_root, project=project),
     }
+    baseline = get_project_baseline(system_root=system_root, project=project)
+    baseline_path = Path(baseline["path"])
+    payload["project_baseline"] = {
+        "path": _relative_or_absolute(baseline_path, system_root),
+        "exists": baseline["exists"],
+        "status": baseline["status"],
+    }
+    payload["change_spec"] = {
+        "path": _relative_or_absolute(target_dir / "spec.json", system_root),
+        "exists": False,
+        "status": "not_created",
+    }
     sources = []
     for path in context_paths.values():
         if path.exists():
             _read_required_text(path)
             sources.append(path.relative_to(system_root).as_posix())
+    if baseline["exists"]:
+        sources.append(baseline_path.relative_to(system_root).as_posix())
     payload["sources"] = sources
 
     business_text = _read_optional_text(context_paths["business_context"])
@@ -233,6 +248,15 @@ def build_task_package(
         "## Project",
         "",
         project,
+        "",
+        "## Project Baseline",
+        "",
+        f"- `{payload['project_baseline']['path']}` ({payload['project_baseline']['status']})",
+        "",
+        "## Change Spec",
+        "",
+        f"- Status: `{payload['change_spec']['status']}`",
+        f"- Path: `{payload['change_spec']['path']}`",
         "",
         "## Business Summary",
         "",

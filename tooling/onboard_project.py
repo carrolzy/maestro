@@ -36,6 +36,7 @@ def onboard_project(
     summary: str,
     project_type: str | None = None,
     force: bool = False,
+    repo_root: Path | None = None,
 ) -> JsonDict:
     """Run the full onboarding flow. Returns a readiness report.
 
@@ -50,6 +51,7 @@ def onboard_project(
         summary=summary,
         project_type=project_type,
         force=force,
+        repo_root=repo_root,
     )
 
     project_dir = system_root / "projects" / project
@@ -157,6 +159,9 @@ def _interactive_onboard(system_root: Path, force: bool = False) -> int:
     # 3. project type (optional, with pick-list)
     project_type = _pick_project_type(system_root)
 
+    repo_root_text = _prompt("Business repository root (optional)")
+    repo_root = Path(repo_root_text).expanduser() if repo_root_text else None
+
     print()
 
     # 4. run
@@ -166,6 +171,7 @@ def _interactive_onboard(system_root: Path, force: bool = False) -> int:
         summary=summary,
         project_type=project_type,
         force=force,
+        repo_root=repo_root,
     )
 
     _print_report(report)
@@ -197,6 +203,7 @@ def main(argv: list[str] | None = None, system_root: Path | None = None, stdout_
     parser.add_argument("--project", default=None, help="Project slug (kebab-case).")
     parser.add_argument("--summary", default=None, help="One-sentence project summary.")
     parser.add_argument("--project-type", default=None, help="Project-type hint, e.g. uniapp-mini-program.")
+    parser.add_argument("--repo-root", default=None, help="Business repository root where AGENTS.md is managed.")
     parser.add_argument("--list-types", action="store_true", help="List available project types and exit.")
     parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
     args = parser.parse_args(argv)
@@ -228,6 +235,7 @@ def main(argv: list[str] | None = None, system_root: Path | None = None, stdout_
             summary=args.summary,
             project_type=args.project_type,
             force=args.force,
+            repo_root=Path(args.repo_root) if args.repo_root else None,
         )
         _print_report(report)
         if stdout_path is not None:

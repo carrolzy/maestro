@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,9 +29,14 @@ def _seed_system(root: Path) -> None:
     )
     (proj / "project-override.md").write_text("# Project Override\n\n## Project Terms\n\n- term\n", encoding="utf-8")
     (proj / "task-context.md").write_text("# Task Context\n\n## Current Task\n\n- task\n", encoding="utf-8")
+    (proj / "spec").mkdir()
+    (proj / "spec" / "project-baseline.md").write_text(
+        "# Project Baseline Spec: alpha\n\n## Status\n\n- Curated test baseline.\n",
+        encoding="utf-8",
+    )
     templates = root / "templates"
     templates.mkdir(parents=True, exist_ok=True)
-    for name in ("business-context", "project-override", "task-context"):
+    for name in ("business-context", "project-override", "task-context", "project-baseline"):
         (templates / f"{name}.md").write_text(f"# {name}\n\n## Section\n", encoding="utf-8")
 
 
@@ -111,6 +117,9 @@ class McpToolContractConformanceTests(unittest.TestCase):
             vault_root = root / "vault"
             source_file = root / "note.md"
             source_file.write_text(NOTE_BODY, encoding="utf-8")
+            spec_package_dir = system_root / "runtime" / "task-packages" / "alpha" / "2026-08-04-conformance"
+            spec_package_dir.mkdir(parents=True)
+            (spec_package_dir / "package.json").write_text(json.dumps({"project": "alpha", "sources": []}), encoding="utf-8")
 
             server = AiEfficiencyMcpServer(system_root=system_root, vault_root=vault_root)
 
@@ -121,6 +130,29 @@ class McpToolContractConformanceTests(unittest.TestCase):
                     "requirement": "alpha consistency requirement",
                     "output_root": str(root / "packages"),
                 },
+                "get_project_baseline": {"project": "alpha"},
+                "seed_project_baseline": {"project": "alpha"},
+                "create_change_spec": {
+                    "project": "alpha",
+                    "package_dir": str(spec_package_dir),
+                    "title": "Conformance spec",
+                    "requirement": "Only change the named alpha behavior.",
+                    "governance_tier": "L2",
+                    "profile": "frontend",
+                    "allowed_files": [{"path": "src/alpha.vue", "reason": "Owns alpha behavior."}],
+                    "allowed_behaviors": ["Update the named alpha behavior."],
+                    "non_goals": ["Do not change beta behavior."],
+                    "acceptance_criteria": ["Alpha behavior is observable."],
+                    "tasks": [{"id": "T1", "outcome": "Update alpha", "allowed_files": ["src/alpha.vue"], "acceptance_criteria": ["AC1"]}],
+                    "verification": {"automated": ["test alpha"], "manual": [], "regression": []},
+                    "technical_approach": "Update only the existing alpha path.",
+                },
+                "approve_change_spec": {
+                    "spec_path": str(spec_package_dir / "spec.json"),
+                    "approver": "test-runner",
+                    "source_reference": "conformance approval",
+                },
+                "spec_gate": {"spec_path": str(spec_package_dir / "spec.json")},
                 "register_project": {"project": "beta", "summary": "Beta summary."},
                 "update_task_run_state": {
                     "runtime_root": str(root / "runtime"),

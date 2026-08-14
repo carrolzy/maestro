@@ -45,6 +45,15 @@ If no note path is supplied, derive one from the default convention:
 
 If no safe slug can be inferred, ask for one or use a conservative task slug already established elsewhere in the task.
 
+## Source File Placement
+
+For a registered project, prepare the Markdown source record under the AI
+efficiency system root at
+`projects/<project>/dev-docs/<YYYY-MM-DD>-<slug>-change-record.md` before
+calling the write-back wrapper. Do not create task records, agent notes, or
+process documents in the business repository unless the user explicitly asks
+for a repository document.
+
 ## Source Of Truth
 
 Use these local sources:
@@ -61,7 +70,8 @@ Obsidian is the durable note source of truth.
 
 1. Decide whether the work is worth durable write-back.
 2. Confirm the project slug is valid.
-3. Confirm the markdown source file exists.
+3. Confirm the markdown source file exists under the AI efficiency system for
+   registered projects.
 4. Confirm the note contains the minimum useful sections:
    - Request
    - Context Used

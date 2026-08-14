@@ -148,7 +148,7 @@ Purpose:
 - explore genuine alternatives with trade-offs and a recommendation
 - lock a section-by-section confirmed design before any code is written
 
-Output: `docs/superpowers/specs/<date>-<slug>-design.md`
+Output: `projects/<project>/dev-docs/<date>-<slug>-design.md`
 
 ### `writing-plans`
 
@@ -159,7 +159,7 @@ Purpose:
 - reality-check the design against live code before planning
 - define the execution contract: verify each task before starting the next
 
-Output: `docs/superpowers/plans/<date>-<slug>-implementation-plan.md`
+Output: `projects/<project>/dev-docs/<date>-<slug>-implementation-plan.md`
 
 ### `test-driven-development`
 

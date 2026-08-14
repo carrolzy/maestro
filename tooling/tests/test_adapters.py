@@ -125,7 +125,7 @@ class RoundTripDispatchTests(unittest.TestCase):
             _seed_system(root)
             templates = root / "templates"
             templates.mkdir(parents=True, exist_ok=True)
-            for n in ("business-context", "project-override", "task-context"):
+            for n in ("business-context", "project-override", "task-context", "project-baseline"):
                 (templates / f"{n}.md").write_text(f"# {n}\n\n## Section\n", encoding="utf-8")
             server = AiEfficiencyMcpServer(system_root=root)
             raw = _native_tool_call("anthropic", "register_project", {"project": "beta", "summary": "Beta."})

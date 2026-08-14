@@ -37,7 +37,7 @@ def _seed_system(root: Path) -> None:
     (proj / "task-context.md").write_text("# Task Context\n\n## Current Task\n\n- test\n", encoding="utf-8")
     templates = root / "templates"
     templates.mkdir(parents=True, exist_ok=True)
-    for n in ("business-context", "project-override", "task-context"):
+    for n in ("business-context", "project-override", "task-context", "project-baseline"):
         (templates / f"{n}.md").write_text(f"# {n}\n\n## Section\n\nplaceholder\n", encoding="utf-8")
 
 
@@ -121,6 +121,7 @@ class ProjectsTests(ApiServerTestBase):
         self.assertIn(status, (200, 201))
         self.assertEqual(body["project"], "beta")
         self.assertTrue(body["valid"])
+        self.assertTrue((self.root / "projects" / "beta" / "spec" / "project-baseline.md").exists())
 
 
 class ToolsTests(ApiServerTestBase):

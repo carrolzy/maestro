@@ -49,6 +49,24 @@ class BuildTaskPackageTests(unittest.TestCase):
             self.assertIn("projects/example-wxapp/project-override.md", payload["sources"])
             self.assertIn("projects/example-wxapp/task-context.md", payload["sources"])
 
+    def test_build_task_package_includes_project_baseline_and_change_spec_state(self) -> None:
+        system_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            result = build_task_package(
+                system_root=system_root,
+                project="wwj-wxapp",
+                requirement="退款商品数量交互变更需要先确认规格状态",
+                output_root=Path(tmp_dir),
+            )
+
+            payload = json.loads((result.output_dir / "package.json").read_text(encoding="utf-8"))
+            markdown = (result.output_dir / "package.md").read_text(encoding="utf-8")
+            self.assertTrue(payload["project_baseline"]["exists"])
+            self.assertIn("projects/wwj-wxapp/spec/project-baseline.md", payload["sources"])
+            self.assertEqual(payload["change_spec"]["status"], "not_created")
+            self.assertIn("Project Baseline", markdown)
+            self.assertIn("Change Spec", markdown)
+
     def test_build_task_package_includes_summary_and_open_questions(self) -> None:
         system_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp_dir:

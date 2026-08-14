@@ -27,6 +27,7 @@
 !/runtime/task-packages/.gitkeep
 /runtime/task-runs/*
 !/runtime/task-runs/.gitkeep
+/task-runs/
 /runtime/perf-cases/*
 !/runtime/perf-cases/.gitkeep
 

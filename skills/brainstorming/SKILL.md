@@ -74,11 +74,11 @@ the section the user pushes back on before moving forward.
 
 ### 5. Save the design document
 
-Write the confirmed design to
-`docs/superpowers/specs/<date>-<slug>-design.md` (for Maestro-system work) or
-the project's equivalent docs area. The document is the input contract for
-`writing-plans` — it must be complete enough that planning needs no further
-user questions.
+For a registered project, write the confirmed design to
+`projects/<project>/dev-docs/<date>-<slug>-design.md` in the AI efficiency
+system root. Do not create process documents in the business repository. The
+document is the input contract for `writing-plans` — it must be complete
+enough that planning needs no further user questions.
 
 ## Response Contract
 
