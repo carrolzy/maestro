@@ -70,6 +70,17 @@ class TaskRoutingPolicyTests(unittest.TestCase):
 
 
 class TaskRoutingDecisionTests(unittest.TestCase):
+    def _seed_clean_repo(self, root: Path, candidate_file: str) -> Path:
+        target = root / candidate_file
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("<style scoped></style>\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Routing Test"], cwd=root, check=True)
+        subprocess.run(["git", "config", "user.email", "routing@example.com"], cwd=root, check=True)
+        subprocess.run(["git", "add", candidate_file], cwd=root, check=True)
+        subprocess.run(["git", "commit", "-m", "seed"], cwd=root, check=True, capture_output=True)
+        return root
+
     def _seed_project(self, root: Path, *, configured: bool = True) -> tuple[Path, Path]:
         repository_root = Path(__file__).resolve().parents[2]
         (root / "base").mkdir(parents=True)
@@ -81,7 +92,15 @@ class TaskRoutingDecisionTests(unittest.TestCase):
         project_dir.mkdir(parents=True)
         if configured:
             (project_dir / "playbook.json").write_text(
-                json.dumps({"routing": {"fast_path_signals": ["local_scoped_style"]}}),
+                json.dumps(
+                    {
+                        "routing": {
+                            "fast_path_signals": ["local_scoped_style"],
+                            "risk_rules": [],
+                            "risky_paths": [],
+                        }
+                    }
+                ),
                 encoding="utf-8",
             )
 
@@ -238,6 +257,35 @@ class TaskRoutingDecisionTests(unittest.TestCase):
         self.assertEqual(result["tier"], "L2")
         self.assertIn("change_spec", result["required_steps"])
         self.assertNotIn("change_spec", result["skipped_steps"])
+
+    def test_real_project_routing_keeps_local_style_fast_and_domain_risks_governed(self) -> None:
+        task_router = importlib.import_module("task_router")
+        system_root = Path(__file__).resolve().parents[2]
+        cases = (
+            ("gcc-wxapp", "pages2/goods-detail/index.vue", "local_scoped_style", "L0"),
+            ("gcc-wxapp", "pages3/confirm-order/index.vue", "shopping_cart", "L2"),
+            ("wwj-wxapp", "src/pages2/goods-detail/index.vue", "local_scoped_style", "L0"),
+            ("wwj-wxapp", "src/api/request.ts", "request_signature", "L2"),
+        )
+
+        for project, candidate_file, signal, expected_tier in cases:
+            with self.subTest(project=project, signal=signal), tempfile.TemporaryDirectory() as tmp_dir:
+                repo_root = self._seed_clean_repo(Path(tmp_dir), candidate_file)
+                result = task_router.route_task(
+                    system_root=system_root,
+                    project=project,
+                    requirement="验证真实项目路由边界",
+                    repo_root=repo_root,
+                    candidate_files=[candidate_file],
+                    observed_signals=[signal],
+                    uncertainties=[],
+                    requested_actions=[],
+                )
+
+            self.assertEqual(result["tier"], expected_tier)
+            if expected_tier == "L2":
+                self.assertIn(signal, result["risk_hits"])
+                self.assertIn("change_spec", result["required_steps"])
 
 
 if __name__ == "__main__":

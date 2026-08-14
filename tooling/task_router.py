@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import json
+from fnmatch import fnmatchcase
 from pathlib import Path
 import subprocess
 from typing import Any
+
+from jsonschema_mini import validate
+from playbook_schema import ROUTING_SCHEMA
 
 
 TIER_ORDER = ("L0", "L1", "L2", "L3")
@@ -59,7 +63,8 @@ def route_task(
     root = Path(system_root).resolve()
     policy = load_routing_policy(root / "base" / "task-routing-policy.json")
     project_dir = root / "projects" / _require_text(project, "project")
-    routing = _load_project_routing(project_dir / "playbook.json")
+    routing_layers = _load_routing_layers(root, project_dir / "playbook.json")
+    routing_configured = bool(routing_layers)
     files = _normalise_strings(candidate_files, "candidate_files")
     signals = _normalise_strings(observed_signals, "observed_signals")
     unknowns = _normalise_strings(uncertainties, "uncertainties")
@@ -67,9 +72,16 @@ def route_task(
     _require_text(requirement, "requirement")
 
     overlapping_files = _overlapping_files(Path(repo_root), files)
-    fast_path_signals = set(routing.get("fast_path_signals", [])) if routing else set()
+    fast_path_signals = {
+        signal
+        for routing in routing_layers
+        for signal in routing.get("fast_path_signals", [])
+    }
     risk_hits = _risk_hits(policy, signals, actions)
-    if routing is None:
+    matched_routing_rules = _match_routing_rules(routing_layers, signals, actions, files)
+    for match in matched_routing_rules:
+        _append_unique(risk_hits, match["risk_hit"])
+    if not routing_configured:
         _append_unique(risk_hits, "unconfigured_project")
     if unknowns:
         _append_unique(risk_hits, "ambiguous_requirement")
@@ -85,8 +97,11 @@ def route_task(
         if name in {"unconfigured_project", "scope_exceeds_fast_path"}
         or policy["global_risks"].get(name, {}).get("hard_veto_l0", False)
     ]
+    for match in matched_routing_rules:
+        if match["hard_veto_l0"]:
+            _append_unique(hard_vetoes, match["risk_hit"])
     qualifies_for_l0 = bool(
-        routing
+        routing_configured
         and files
         and len(files) <= 2
         and signals
@@ -100,11 +115,13 @@ def route_task(
     for risk_name in risk_hits:
         if risk_name in policy["global_risks"]:
             tier = _max_tier(tier, policy["global_risks"][risk_name]["min_tier"])
+    for match in matched_routing_rules:
+        tier = _max_tier(tier, match["min_tier"])
     if current_tier is not None and tier_rank(current_tier) > tier_rank(tier):
         tier = current_tier
 
     definition = policy["tiers"][tier]
-    confidence = "low" if unknowns else "medium" if overlapping_files or routing is None else "high"
+    confidence = "low" if unknowns else "medium" if overlapping_files or not routing_configured else "high"
     return {
         "tier": tier,
         "confidence": confidence,
@@ -122,7 +139,8 @@ def route_task(
         "reasons": _routing_reasons(
             qualifies_for_l0=qualifies_for_l0,
             risk_hits=risk_hits,
-            configured=routing is not None,
+            configured=routing_configured,
+            routing_reasons=[match["reason"] for match in matched_routing_rules],
         ),
     }
 
@@ -170,7 +188,13 @@ def _max_tier(left: str, right: str) -> str:
     return left if tier_rank(left) >= tier_rank(right) else right
 
 
-def _routing_reasons(*, qualifies_for_l0: bool, risk_hits: list[str], configured: bool) -> list[str]:
+def _routing_reasons(
+    *,
+    qualifies_for_l0: bool,
+    risk_hits: list[str],
+    configured: bool,
+    routing_reasons: list[str],
+) -> list[str]:
     if qualifies_for_l0:
         return ["configured local fast-path signal"]
     reasons = []
@@ -178,17 +202,78 @@ def _routing_reasons(*, qualifies_for_l0: bool, risk_hits: list[str], configured
         reasons.append("project routing is not configured")
     if risk_hits:
         reasons.append("risk floor applied: " + ", ".join(risk_hits))
+    for reason in routing_reasons:
+        _append_unique(reasons, reason)
     return reasons or ["fast-path conditions not satisfied"]
 
 
-def _load_project_routing(path: Path) -> dict[str, Any] | None:
+def _load_routing_layers(system_root: Path, playbook_path: Path) -> list[dict[str, Any]]:
+    playbook = _read_json_object(playbook_path)
+    if playbook is None:
+        return []
+    layers: list[dict[str, Any]] = []
+    project_type = playbook.get("project_type")
+    if isinstance(project_type, str) and project_type.strip():
+        type_path = system_root / "project-types" / project_type / "routing.json"
+        type_routing = _read_json_object(type_path)
+        if type_routing is not None:
+            _validate_routing(type_routing, type_path)
+            layers.append(type_routing)
+    project_routing = playbook.get("routing")
+    if project_routing is not None:
+        if not isinstance(project_routing, dict):
+            raise ValueError(f"routing must be an object: {playbook_path}")
+        _validate_routing(project_routing, playbook_path)
+        layers.append(project_routing)
+    return layers
+
+
+def _read_json_object(path: Path) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, json.JSONDecodeError):
+    except FileNotFoundError:
         return None
-    if not isinstance(payload, dict) or not isinstance(payload.get("routing"), dict):
-        return None
-    return payload["routing"]
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read routing configuration: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"Routing configuration root must be an object: {path}")
+    return payload
+
+
+def _validate_routing(routing: dict[str, Any], source: Path) -> None:
+    errors = validate(routing, ROUTING_SCHEMA)
+    if errors:
+        raise ValueError(f"Invalid routing configuration {source}: {'; '.join(errors)}")
+
+
+def _match_routing_rules(
+    routing_layers: list[dict[str, Any]],
+    signals: list[str],
+    actions: list[str],
+    files: list[str],
+) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    observed = set(signals) | set(actions)
+    for routing in routing_layers:
+        for rule in routing.get("risk_rules", []):
+            for signal in rule["signals"]:
+                if signal in observed:
+                    matches.append({
+                        "risk_hit": signal,
+                        "min_tier": rule["min_tier"],
+                        "hard_veto_l0": rule["hard_veto_l0"],
+                        "reason": rule["reason"],
+                    })
+        for rule in routing.get("risky_paths", []):
+            for pattern in rule["patterns"]:
+                if any(fnmatchcase(path, pattern) for path in files):
+                    matches.append({
+                        "risk_hit": f"risky_path:{pattern}",
+                        "min_tier": rule["min_tier"],
+                        "hard_veto_l0": True,
+                        "reason": rule["reason"],
+                    })
+    return matches
 
 
 def _overlapping_files(repo_root: Path, candidate_files: list[str]) -> list[str]:
