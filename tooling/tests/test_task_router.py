@@ -1,4 +1,5 @@
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 import json
 import shutil
 import subprocess
@@ -286,6 +287,84 @@ class TaskRoutingDecisionTests(unittest.TestCase):
             if expected_tier == "L2":
                 self.assertIn(signal, result["risk_hits"])
                 self.assertIn("change_spec", result["required_steps"])
+
+    def test_routing_log_records_only_minimal_decision_metadata(self) -> None:
+        task_router = importlib.import_module("task_router")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root, repo_root = self._seed_project(Path(tmp_dir))
+            requirement = "调整卡片局部间距，不得把完整内容写入观测日志"
+            result = task_router.route_task(
+                system_root=system_root,
+                project="alpha",
+                requirement=requirement,
+                repo_root=repo_root,
+                candidate_files=["src/card.vue"],
+                observed_signals=["local_scoped_style"],
+                uncertainties=[],
+                requested_actions=[],
+            )
+            log_path = system_root / "runtime" / "routing-decisions.jsonl"
+            self.assertTrue(log_path.is_file())
+            raw_line = log_path.read_text(encoding="utf-8").strip()
+            record = json.loads(raw_line)
+
+        self.assertEqual(result["warnings"], [])
+        self.assertEqual(record["project"], "alpha")
+        self.assertEqual(record["tier"], "L0")
+        self.assertGreaterEqual(record["elapsed_ms"], 0)
+        self.assertEqual(record["risk_tags"], [])
+        self.assertFalse(record["upgraded"])
+        self.assertFalse(record["user_override"])
+        self.assertNotIn(requirement, raw_line)
+        self.assertNotIn("src/card.vue", raw_line)
+        self.assertNotIn("requirement", record)
+        self.assertNotIn("candidate_files", record)
+
+    def test_logging_failure_warns_without_changing_the_tier(self) -> None:
+        task_router = importlib.import_module("task_router")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root, repo_root = self._seed_project(Path(tmp_dir))
+            (system_root / "runtime").write_text("not a directory", encoding="utf-8")
+            result = task_router.route_task(
+                system_root=system_root,
+                project="alpha",
+                requirement="调整卡片局部间距",
+                repo_root=repo_root,
+                candidate_files=["src/card.vue"],
+                observed_signals=["local_scoped_style"],
+                uncertainties=[],
+                requested_actions=[],
+            )
+
+        self.assertEqual(result["tier"], "L0")
+        self.assertTrue(any("log failed" in warning for warning in result["warnings"]))
+
+    def test_concurrent_routing_logs_keep_one_json_record_per_line(self) -> None:
+        task_router = importlib.import_module("task_router")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root, repo_root = self._seed_project(Path(tmp_dir))
+
+            def route_once(index: int) -> dict:
+                return task_router.route_task(
+                    system_root=system_root,
+                    project="alpha",
+                    requirement=f"局部样式调整 {index}",
+                    repo_root=repo_root,
+                    candidate_files=["src/card.vue"],
+                    observed_signals=["local_scoped_style"],
+                    uncertainties=[],
+                    requested_actions=[],
+                )
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                results = list(executor.map(route_once, range(24)))
+
+            lines = (system_root / "runtime" / "routing-decisions.jsonl").read_text(encoding="utf-8").splitlines()
+            records = [json.loads(line) for line in lines]
+
+        self.assertEqual(len(records), 24)
+        self.assertTrue(all(result["warnings"] == [] for result in results))
+        self.assertTrue(all(record["tier"] == "L0" for record in records))
 
 
 if __name__ == "__main__":

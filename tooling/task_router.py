@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import json
 from fnmatch import fnmatchcase
+from datetime import datetime, timezone
+import os
 from pathlib import Path
 import subprocess
+from time import perf_counter
 from typing import Any
 
 from jsonschema_mini import validate
@@ -58,8 +61,10 @@ def route_task(
     uncertainties: list[str],
     requested_actions: list[str],
     current_tier: str | None = None,
+    user_override: bool = False,
 ) -> dict[str, Any]:
     """Return a deterministic minimum governance tier for a task."""
+    started_at = perf_counter()
     root = Path(system_root).resolve()
     policy = load_routing_policy(root / "base" / "task-routing-policy.json")
     project_dir = root / "projects" / _require_text(project, "project")
@@ -70,6 +75,8 @@ def route_task(
     unknowns = _normalise_strings(uncertainties, "uncertainties")
     actions = _normalise_strings(requested_actions, "requested_actions")
     _require_text(requirement, "requirement")
+    if not isinstance(user_override, bool):
+        raise ValueError("user_override must be a boolean")
 
     overlapping_files = _overlapping_files(Path(repo_root), files)
     fast_path_signals = {
@@ -122,7 +129,7 @@ def route_task(
 
     definition = policy["tiers"][tier]
     confidence = "low" if unknowns else "medium" if overlapping_files or not routing_configured else "high"
-    return {
+    result = {
         "tier": tier,
         "confidence": confidence,
         "risk_hits": risk_hits,
@@ -142,7 +149,56 @@ def route_task(
             configured=routing_configured,
             routing_reasons=[match["reason"] for match in matched_routing_rules],
         ),
+        "warnings": [],
     }
+    warning = _append_decision_log(
+        system_root=root,
+        project=project,
+        tier=tier,
+        elapsed_ms=round((perf_counter() - started_at) * 1000, 3),
+        risk_tags=risk_hits,
+        previous_tier=current_tier,
+        user_override=user_override,
+    )
+    if warning:
+        result["warnings"].append(warning)
+    return result
+
+
+def _append_decision_log(
+    *,
+    system_root: Path,
+    project: str,
+    tier: str,
+    elapsed_ms: float,
+    risk_tags: list[str],
+    previous_tier: str | None,
+    user_override: bool,
+) -> str | None:
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "project": project,
+        "tier": tier,
+        "elapsed_ms": elapsed_ms,
+        "risk_tags": list(risk_tags),
+        "previous_tier": previous_tier,
+        "upgraded": previous_tier is not None and tier_rank(tier) > tier_rank(previous_tier),
+        "user_override": user_override,
+    }
+    encoded = (json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    log_path = system_root / "runtime" / "routing-decisions.jsonl"
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(log_path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+        try:
+            written = os.write(descriptor, encoded)
+            if written != len(encoded):
+                raise OSError("short append")
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        return f"routing decision log failed: {exc}"
+    return None
 
 
 def _risk_hits(policy: dict[str, Any], signals: list[str], actions: list[str]) -> list[str]:

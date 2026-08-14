@@ -30,6 +30,7 @@
 /task-runs/
 /runtime/perf-cases/*
 !/runtime/perf-cases/.gitkeep
+/runtime/routing-decisions.jsonl
 
 # Artifact-lifecycle outputs: compressed archives, per-task scratch area,
 # and the temp-file TTL registry are all machine-local.
