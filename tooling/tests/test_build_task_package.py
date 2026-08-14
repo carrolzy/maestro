@@ -7,6 +7,17 @@ from build_task_package import build_task_package
 
 
 class BuildTaskPackageTests(unittest.TestCase):
+    def _seed_project_with_baseline(self, system_root: Path, project: str) -> None:
+        project_dir = system_root / "projects" / project
+        (project_dir / "spec").mkdir(parents=True)
+        (project_dir / "business-context.md").write_text("# Business Context\n\n通用测试项目。\n", encoding="utf-8")
+        (project_dir / "project-override.md").write_text("# Project Override\n\n- 保持测试范围。\n", encoding="utf-8")
+        (project_dir / "task-context.md").write_text("# Task Context\n\n通用测试任务。\n", encoding="utf-8")
+        (project_dir / "spec" / "project-baseline.md").write_text(
+            "# Project Baseline Spec: baseline-fixture\n\n## Status\n\n- Curated test baseline.\n",
+            encoding="utf-8",
+        )
+
     def test_build_task_package_creates_json_and_markdown_outputs(self) -> None:
         system_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -50,19 +61,20 @@ class BuildTaskPackageTests(unittest.TestCase):
             self.assertIn("projects/example-wxapp/task-context.md", payload["sources"])
 
     def test_build_task_package_includes_project_baseline_and_change_spec_state(self) -> None:
-        system_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = (Path(tmp_dir) / "system").resolve()
+            self._seed_project_with_baseline(system_root, "baseline-fixture")
             result = build_task_package(
                 system_root=system_root,
-                project="wwj-wxapp",
+                project="baseline-fixture",
                 requirement="退款商品数量交互变更需要先确认规格状态",
-                output_root=Path(tmp_dir),
+                output_root=Path(tmp_dir) / "output",
             )
 
             payload = json.loads((result.output_dir / "package.json").read_text(encoding="utf-8"))
             markdown = (result.output_dir / "package.md").read_text(encoding="utf-8")
             self.assertTrue(payload["project_baseline"]["exists"])
-            self.assertIn("projects/wwj-wxapp/spec/project-baseline.md", payload["sources"])
+            self.assertIn("projects/baseline-fixture/spec/project-baseline.md", payload["sources"])
             self.assertEqual(payload["change_spec"]["status"], "not_created")
             self.assertIn("Project Baseline", markdown)
             self.assertIn("Change Spec", markdown)

@@ -259,23 +259,59 @@ class TaskRoutingDecisionTests(unittest.TestCase):
         self.assertIn("change_spec", result["required_steps"])
         self.assertNotIn("change_spec", result["skipped_steps"])
 
-    def test_real_project_routing_keeps_local_style_fast_and_domain_risks_governed(self) -> None:
+    def test_project_routing_keeps_local_style_fast_and_domain_risks_governed(self) -> None:
         task_router = importlib.import_module("task_router")
-        system_root = Path(__file__).resolve().parents[2]
-        cases = (
-            ("gcc-wxapp", "pages2/goods-detail/index.vue", "local_scoped_style", "L0"),
-            ("gcc-wxapp", "pages3/confirm-order/index.vue", "shopping_cart", "L2"),
-            ("wwj-wxapp", "src/pages2/goods-detail/index.vue", "local_scoped_style", "L0"),
-            ("wwj-wxapp", "src/api/request.ts", "request_signature", "L2"),
-        )
+        repository_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            (system_root / "base").mkdir(parents=True)
+            shutil.copyfile(
+                repository_root / "base" / "task-routing-policy.json",
+                system_root / "base" / "task-routing-policy.json",
+            )
+            type_dir = system_root / "project-types" / "uniapp-mini-program"
+            type_dir.mkdir(parents=True)
+            shutil.copyfile(
+                repository_root / "project-types" / "uniapp-mini-program" / "routing.json",
+                type_dir / "routing.json",
+            )
+            for project in ("storefront-a", "storefront-b"):
+                project_dir = system_root / "projects" / project
+                project_dir.mkdir(parents=True)
+                (project_dir / "playbook.json").write_text(
+                    json.dumps(
+                        {
+                            "project_type": "uniapp-mini-program",
+                            "routing": {
+                                "fast_path_signals": ["local_scoped_style"],
+                                "risk_rules": [
+                                    {
+                                        "signals": ["shopping_cart"],
+                                        "min_tier": "L2",
+                                        "reason": "购物车属于交易前共享业务边界",
+                                        "hard_veto_l0": True,
+                                    }
+                                ],
+                                "risky_paths": [],
+                            },
+                        }
+                    ),
+                    encoding="utf-8",
+                )
 
-        for project, candidate_file, signal, expected_tier in cases:
-            with self.subTest(project=project, signal=signal), tempfile.TemporaryDirectory() as tmp_dir:
-                repo_root = self._seed_clean_repo(Path(tmp_dir), candidate_file)
+            cases = (
+                ("storefront-a", "pages2/goods-detail/index.vue", "local_scoped_style", "L0"),
+                ("storefront-a", "pages3/confirm-order/index.vue", "shopping_cart", "L2"),
+                ("storefront-b", "src/pages2/goods-detail/index.vue", "local_scoped_style", "L0"),
+                ("storefront-b", "src/api/request.ts", "request_signature", "L2"),
+            )
+
+            for index, (project, candidate_file, signal, expected_tier) in enumerate(cases):
+                repo_root = self._seed_clean_repo(Path(tmp_dir) / f"repo-{index}", candidate_file)
                 result = task_router.route_task(
                     system_root=system_root,
                     project=project,
-                    requirement="验证真实项目路由边界",
+                    requirement="验证通用项目路由边界",
                     repo_root=repo_root,
                     candidate_files=[candidate_file],
                     observed_signals=[signal],
@@ -283,10 +319,11 @@ class TaskRoutingDecisionTests(unittest.TestCase):
                     requested_actions=[],
                 )
 
-            self.assertEqual(result["tier"], expected_tier)
-            if expected_tier == "L2":
-                self.assertIn(signal, result["risk_hits"])
-                self.assertIn("change_spec", result["required_steps"])
+                with self.subTest(project=project, signal=signal):
+                    self.assertEqual(result["tier"], expected_tier)
+                    if expected_tier == "L2":
+                        self.assertIn(signal, result["risk_hits"])
+                        self.assertIn("change_spec", result["required_steps"])
 
     def test_routing_log_records_only_minimal_decision_metadata(self) -> None:
         task_router = importlib.import_module("task_router")

@@ -33,9 +33,9 @@ Maestro 在执行其他生命周期流程前，先根据“工程量 + 风险”
 
 ```json
 {
-  "project": "gcc-wxapp",
+  "project": "example-wxapp",
   "requirement": "调整商品详情页标题间距",
-  "repo_root": "/path/to/gcc-wxapp",
+  "repo_root": "/path/to/example-wxapp",
   "candidate_files": ["pages2/goods-detail/index.vue"],
   "observed_signals": ["local_scoped_style"],
   "uncertainties": [],
