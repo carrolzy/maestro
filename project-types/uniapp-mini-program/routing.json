@@ -1,0 +1,68 @@
+{
+  "fast_path_signals": [
+    "local_scoped_style",
+    "local_copy_change",
+    "local_asset_replacement",
+    "isolated_bugfix"
+  ],
+  "risk_rules": [
+    {
+      "signals": ["login", "authentication", "login_return"],
+      "min_tier": "L2",
+      "reason": "登录与鉴权状态可能跨页面和生命周期传播",
+      "hard_veto_l0": true
+    },
+    {
+      "signals": ["payment", "order", "price", "discount", "inventory", "settlement", "store", "address", "delivery"],
+      "min_tier": "L2",
+      "reason": "交易、金额与履约作用域必须经过完整治理",
+      "hard_veto_l0": true
+    },
+    {
+      "signals": ["shared_state", "pinia", "vuex", "global_data", "cache", "lifecycle_sync"],
+      "min_tier": "L2",
+      "reason": "共享状态和生命周期同步可能影响多个页面",
+      "hard_veto_l0": true
+    },
+    {
+      "signals": ["route_config", "subpackage_config", "manifest_config", "build_config"],
+      "min_tier": "L2",
+      "reason": "路由、分包和构建配置会改变全局运行边界",
+      "hard_veto_l0": true
+    },
+    {
+      "signals": ["public_request", "request_signature", "api_contract", "request_error_handling"],
+      "min_tier": "L2",
+      "reason": "公共请求和接口契约会影响跨模块调用",
+      "hard_veto_l0": true
+    },
+    {
+      "signals": ["permission_change", "privacy_data"],
+      "min_tier": "L3",
+      "reason": "权限和隐私变更需要额外人工确认",
+      "hard_veto_l0": true
+    }
+  ],
+  "risky_paths": [
+    {
+      "patterns": ["App.vue", "store/**", "stores/**"],
+      "min_tier": "L2",
+      "reason": "应用入口与状态仓库属于共享运行边界"
+    },
+    {
+      "patterns": ["common/request/**", "utils/request/**", "api/**"],
+      "min_tier": "L2",
+      "reason": "公共请求路径影响多个业务模块"
+    },
+    {
+      "patterns": ["pages/confirm-order/**", "pages*/confirm-order/**"],
+      "min_tier": "L2",
+      "reason": "确认订单页面属于交易边界"
+    },
+    {
+      "patterns": ["pages.json", "manifest.json", "vite.config.*", "package.json"],
+      "min_tier": "L2",
+      "reason": "路由、构建和依赖配置属于全局边界"
+    }
+  ]
+}

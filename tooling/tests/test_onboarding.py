@@ -12,7 +12,7 @@ from business_card import (
 )
 from jsonschema_mini import is_valid
 from onboard_project import onboard_project
-from playbook_schema import PLAYBOOK_SCHEMA, load_and_validate_playbook, validate_playbook
+from playbook_schema import PLAYBOOK_SCHEMA, ROUTING_SCHEMA, load_and_validate_playbook, validate_playbook
 from project_types import list_project_types, project_type_exists, project_type_names
 from register_project import register_project
 from validate_project import validate_project
@@ -53,6 +53,31 @@ class PlaybookSchemaTests(unittest.TestCase):
     def test_playbook_with_project_type_validates(self) -> None:
         errors = validate_playbook({"project_type": "uniapp-mini-program", "guidance": []})
         self.assertEqual(errors, [])
+
+    def test_playbook_with_routing_contract_validates(self) -> None:
+        routing = {
+            "fast_path_signals": ["local_scoped_style", "local_copy_change"],
+            "risk_rules": [
+                {
+                    "signals": ["payment", "order"],
+                    "min_tier": "L2",
+                    "reason": "交易链路需要完整治理",
+                    "hard_veto_l0": True,
+                }
+            ],
+            "risky_paths": [
+                {
+                    "patterns": ["pages/confirm-order/**"],
+                    "min_tier": "L2",
+                    "reason": "确认订单是交易边界",
+                }
+            ],
+        }
+
+        self.assertEqual(validate_playbook({"guidance": [], "routing": routing}), [])
+        routing["risk_rules"][0]["min_tier"] = "L9"
+        errors = validate_playbook({"guidance": [], "routing": routing})
+        self.assertTrue(any("enum" in error.lower() for error in errors), msg=errors)
 
     def test_guidance_entry_with_extra_field_caught(self) -> None:
         errors = validate_playbook(
@@ -150,6 +175,22 @@ class BusinessCardSchemaTests(unittest.TestCase):
 
 
 class ProjectTypeDiscoveryTests(unittest.TestCase):
+    def test_uniapp_routing_defaults_cover_high_risk_domains(self) -> None:
+        system_root = Path(__file__).resolve().parents[2]
+        path = system_root / "project-types" / "uniapp-mini-program" / "routing.json"
+        self.assertTrue(path.is_file(), "uniapp routing.json must exist")
+        routing = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertTrue(is_valid(routing, ROUTING_SCHEMA))
+        signals = {
+            signal
+            for rule in routing["risk_rules"]
+            for signal in rule["signals"]
+        }
+        self.assertTrue(
+            {"login", "payment", "shared_state", "route_config", "subpackage_config", "public_request"}.issubset(signals)
+        )
+
     def test_lists_known_project_types(self) -> None:
         system_root = Path(__file__).resolve().parents[2]
         types = list_project_types(system_root)
@@ -278,8 +319,13 @@ class OnboardProjectTests(unittest.TestCase):
                 project_type="uniapp-mini-program",
             )
             playbook_path = root / "projects" / "zeta" / "playbook.json"
-            _, errors = load_and_validate_playbook(playbook_path)
+            playbook, errors = load_and_validate_playbook(playbook_path)
             self.assertEqual(errors, [])
+            self.assertIn("routing", playbook)
+            self.assertEqual(
+                playbook["routing"],
+                {"fast_path_signals": [], "risk_rules": [], "risky_paths": []},
+            )
 
     def test_onboarded_card_is_valid(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

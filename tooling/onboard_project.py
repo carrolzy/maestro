@@ -63,6 +63,11 @@ def onboard_project(
         if project_type:
             playbook["project_type"] = project_type
         playbook["guidance"] = []
+        playbook["routing"] = {
+            "fast_path_signals": [],
+            "risk_rules": [],
+            "risky_paths": [],
+        }
         playbook_path.write_text(
             json.dumps(playbook, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

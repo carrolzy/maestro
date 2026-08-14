@@ -19,6 +19,45 @@ from jsonschema_mini import validate
 
 JsonDict = dict[str, Any]
 
+ROUTING_SCHEMA: JsonDict = {
+    "type": "object",
+    "properties": {
+        "fast_path_signals": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "risk_rules": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "signals": {"type": "array", "items": {"type": "string"}},
+                    "min_tier": {"type": "string", "enum": ["L0", "L1", "L2", "L3"]},
+                    "reason": {"type": "string"},
+                    "hard_veto_l0": {"type": "boolean"},
+                },
+                "required": ["signals", "min_tier", "reason", "hard_veto_l0"],
+                "additionalProperties": False,
+            },
+        },
+        "risky_paths": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "patterns": {"type": "array", "items": {"type": "string"}},
+                    "min_tier": {"type": "string", "enum": ["L0", "L1", "L2", "L3"]},
+                    "reason": {"type": "string"},
+                },
+                "required": ["patterns", "min_tier", "reason"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["fast_path_signals", "risk_rules", "risky_paths"],
+    "additionalProperties": False,
+}
+
 PLAYBOOK_SCHEMA: JsonDict = {
     "type": "object",
     "properties": {
@@ -86,6 +125,7 @@ PLAYBOOK_SCHEMA: JsonDict = {
                 "additionalProperties": False,
             },
         },
+        "routing": ROUTING_SCHEMA,
     },
     "additionalProperties": False,
 }
