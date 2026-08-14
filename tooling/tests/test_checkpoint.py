@@ -108,6 +108,11 @@ class ResumeContextTests(unittest.TestCase):
         update_task_run_state(
             runtime_root=self.root, project="app", task_slug="done",
             state="closed", agent="codex",
+            governance_tier="L0",
+            documentation_impact={
+                "status": "not_needed",
+                "reason": "测试仅验证关闭任务不可恢复。",
+            },
         )
         ctx = build_resume_context(self.root, "app", "done")
         self.assertFalse(ctx["can_resume"])
@@ -210,10 +215,15 @@ class AgentStateTrackingTests(unittest.TestCase):
         self.assertEqual(status["agent"], "codex")
 
     def test_backward_compat_no_agent(self) -> None:
-        """Old code without agent param still works."""
+        """Closing without an agent still works when closeout metadata is present."""
         update_task_run_state(
             runtime_root=self.root, project="app", task_slug="t3",
             state="closed",
+            governance_tier="L0",
+            documentation_impact={
+                "status": "not_needed",
+                "reason": "测试不涉及用户可见文档。",
+            },
         )
         self.assertTrue((self.root / "task-runs" / "app" / "t3" / "status.json").exists())
 

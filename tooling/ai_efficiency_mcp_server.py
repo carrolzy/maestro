@@ -252,22 +252,32 @@ class AiEfficiencyMcpServer:
         project = _required_string(arguments, "project")
         task_slug = _required_string(arguments, "task_slug")
         state = _required_string(arguments, "state")
+        governance_tier = _optional_string(arguments, "governance_tier")
+        documentation_impact = _optional_dict(arguments, "documentation_impact")
         output_path = update_task_run_state(
             runtime_root=runtime_root,
             project=project,
             task_slug=task_slug,
             state=state,
+            governance_tier=governance_tier,
+            documentation_impact=documentation_impact,
         )
         # Closing a task restarts the TTL clock on its registered temp files —
         # the post-release verification window runs from the close date.
         if state == "closed":
             refresh_task_temp_files(runtime_root, project=project, task_slug=task_slug)
-        return {
+        result = {
             "path": str(output_path),
             "project": project,
             "task_slug": task_slug,
             "state": state,
         }
+        if governance_tier:
+            result["governance_tier"] = governance_tier
+        if documentation_impact:
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            result["documentation_impact"] = payload["documentation_impact"]
+        return result
 
     def _call_writeback_and_sync_memory(self, arguments: JsonDict) -> JsonDict:
         output_path, index_path = writeback_and_sync_memory(
@@ -742,6 +752,15 @@ def _required_dict(arguments: JsonDict, key: str) -> JsonDict:
     if isinstance(value, dict):
         return value
     raise ValueError(f"Missing required object argument: {key}")
+
+
+def _optional_dict(arguments: JsonDict, key: str) -> JsonDict | None:
+    value = arguments.get(key)
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    raise ValueError(f"{key} must be an object")
 
 
 if __name__ == "__main__":

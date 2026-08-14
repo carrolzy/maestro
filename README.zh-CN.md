@@ -17,6 +17,7 @@ DeepSeek，或任何支持 MCP 的客户端。它为每个接入的模型提供�
 |---|---|
 | **项目接入** | 一条命令（或一个 Web 表单）注册任何项目。自动生成业务上下文、剧本和机器可读的商务名片。 |
 | **记忆系统** | 分层记忆（项目卡片、案例、模式、规则），模型在工作前读取，工作后回写。 |
+| **自适应任务路由** | 修改前确定性选择 L0～L3 治理等级，让局部小改快速执行，让高风险边界自动进入强治理。 |
 | **任务打包** | 从项目上下文 + 需求文本构建自包含的任务简报 — 可注入任何模型提示词。 |
 | **Spec Coding** | 生成带允许范围、非目标、验收标准、人工批准和实施前网关的变更规格。 |
 | **MCP 工具层** | 27 个 MCP 工具，带有完整的 `inputSchema` / `outputSchema` 和一致性测试套件。任何 MCP 客户端都能获得可发现、已验证的契约。 |
@@ -90,6 +91,21 @@ bin/onboard-project.sh \
   --summary "一个电商小程序" \
   --project-type uniapp-mini-program
 ```
+
+### 修改前先路由
+
+`task-routing` 技能先做低成本只读预检，再调用 `route_task` 选择最低安全流程：
+
+| 等级 | 默认流程 |
+|---|---|
+| L0 | 当前分支、局部修改、针对性验证 |
+| L1 | 必要上下文、创建分支、实现、验证、文档影响检查 |
+| L2 | 分支、任务包、Change Spec + 审批 + Spec Gate、完整验证、写回 |
+| L3 | L2 全流程，并在生产、安全、破坏性或远程副作用前额外人工确认 |
+
+风险优先于工程量；携带 `current_tier` 重新路由时只升不降。项目 `AGENTS.md`
+里的高优先级业务规则仍然先执行。配置方式、MCP 示例、升级触发条件与关闭门禁见
+[自适应任务路由使用文档](docs/task-routing.md)。
 
 ### 构建任务包
 
@@ -174,7 +190,8 @@ Maestro 分五个阶段构建，每个阶段在前一阶段之上叠加，不破
 **设计原则：**
 - **业务不进核心。** 只有通用引擎 + 每个项目自己的配置（`playbook.json`、`business-card.json`）。
 - **先记忆，后工作。** 开始前读取先前的上下文；完成后回写。
-- **先验证，后关闭。** 没有证据不关闭任务。
+- **执行前先路由。** 使用最低安全流程；风险只能提高治理下限。
+- **先验证，后关闭。** 没有验证证据、`governance_tier` 和 `documentation_impact` 不关闭任务。
 - **零运行时依赖。** 工具层只用 Python 标准库。控制台是原生 JS/CSS — 无构建步骤，无 npm。
 - **模型无关。** 核心代码中没有 LLM 调用。每个表面（MCP、适配器、控制台 API）都通过相同的 `server.invoke()` 派发。
 
@@ -206,6 +223,7 @@ maestro/
 │   ├── context_pack.py           #   模型无关上下文包生成器
 │   ├── jsonschema_mini.py        #   零依赖 JSON Schema 校验器
 │   ├── task_package_builder.py   #   从上下文构建任务包
+│   ├── task_router.py            #   确定性 L0-L3 任务路由器
 │   ├── search_memory.py          #   搜索分层记忆
 │   ├── register_project.py       #   注册新项目壳
 │   ├── update_task_run_state.py  #   任务生命周期状态持久化
@@ -238,6 +256,7 @@ maestro/
 ├── skills/                       # Markdown 技能（按运行时安装）
 ├── docs/                         # 文档
 │   ├── ARCHITECTURE.md
+│   ├── task-routing.md
 │   └── ROADMAP.md
 │
 ├── README.md                     # 英文文档
@@ -253,6 +272,7 @@ maestro/
 | 工具 | 说明 |
 |---|---|
 | `search_memory` | 搜索项目卡片、案例、模式、规则 |
+| `route_task` | 根据项目策略和运行时事实选择最低安全的 L0～L3 治理等级 |
 | `build_task_package` | 从项目上下文 + 需求构建任务简报 |
 | `get_project_baseline` | 读取项目级的持久基线规格 |
 | `seed_project_baseline` | 仅补齐缺失的项目基线，保留已整理内容 |
@@ -260,7 +280,7 @@ maestro/
 | `approve_change_spec` | 记录具名人工批准及可追溯来源 |
 | `spec_gate` | 只读检查，合同未完整且未批准时阻断实施 |
 | `register_project` | 从模板创建新项目壳 |
-| `update_task_run_state` | 记录任务生命周期状态变更 |
+| `update_task_run_state` | 记录生命周期状态；关闭时必须提供等级和明确的文档影响 |
 | `writeback_and_sync_memory` | 将笔记写入知识库 + 同步到记忆 |
 | `doctor_local_skills` | 诊断本地技能安装状态 |
 | `validate_project` | 检查项目就绪状态（文件、剧本、名片、类型） |

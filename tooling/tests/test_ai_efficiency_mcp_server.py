@@ -176,6 +176,37 @@ class AiEfficiencyMcpServerTests(unittest.TestCase):
                 status_path.resolve(),
             )
 
+    def test_tools_call_update_task_run_state_records_closeout_documentation_impact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir)
+            server = AiEfficiencyMcpServer(system_root=system_root)
+
+            response = server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 41,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "update_task_run_state",
+                        "arguments": {
+                            "project": "alpha",
+                            "task_slug": "2026-08-14-closeout",
+                            "state": "closed",
+                            "governance_tier": "L1",
+                            "documentation_impact": {
+                                "status": "updated",
+                                "files": ["README.zh-CN.md"],
+                                "reason": "记录新增的用户可见行为。",
+                            },
+                        },
+                    },
+                }
+            )
+
+            result = response["result"]["structuredContent"]
+            self.assertEqual(result["governance_tier"], "L1")
+            self.assertEqual(result["documentation_impact"]["files"], ["README.zh-CN.md"])
+
     def test_tools_call_register_project_uses_existing_templates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             system_root = Path(tmp_dir)

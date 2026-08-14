@@ -266,6 +266,18 @@ TOOL_SPECS: list[JsonDict] = [
             "project": {"type": "string", "description": "Project slug."},
             "task_slug": {"type": "string", "description": "Task-run slug."},
             "state": {"type": "string", "description": "Lifecycle state, e.g. packaged, written_back, synced, closed."},
+            "governance_tier": {"type": "string", "enum": ["L0", "L1", "L2", "L3"], "description": "Required for closed state."},
+            "documentation_impact": {
+                "type": "object",
+                "description": "Required for closed state: updated files or an explicit not_needed reason.",
+                "properties": {
+                    "status": {"type": "string", "enum": ["updated", "not_needed"]},
+                    "files": {"type": "array", "items": {"type": "string"}},
+                    "reason": {"type": "string"},
+                },
+                "required": ["status", "reason"],
+                "additionalProperties": False,
+            },
         },
         required=["project", "task_slug", "state"],
         output_schema={
@@ -275,6 +287,17 @@ TOOL_SPECS: list[JsonDict] = [
                 "project": {"type": "string"},
                 "task_slug": {"type": "string"},
                 "state": {"type": "string"},
+                "governance_tier": {"type": "string"},
+                "documentation_impact": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string"},
+                        "files": {"type": "array", "items": {"type": "string"}},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["status", "files", "reason"],
+                    "additionalProperties": False,
+                },
             },
             "required": ["path", "project", "task_slug", "state"],
             "additionalProperties": False,

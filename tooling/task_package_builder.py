@@ -402,6 +402,12 @@ def build_task_package(
                 project=project,
                 task_slug=task_slug,
                 state="closed",
+                governance_tier="L2",
+                documentation_impact={
+                    "status": "updated",
+                    "files": [str(target_dir / "package.md"), note_path],
+                    "reason": "任务包已生成并写回知识库。",
+                },
             )
     elif runtime_root is not None and task_slug is not None:
         update_task_run_state(

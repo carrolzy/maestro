@@ -19,6 +19,7 @@ Everything runs on your machine.
 |---|---|
 | **Project onboarding** | Register any project with one command (or a web form). Auto-generates business context, playbook, and a machine-readable business card. |
 | **Memory system** | Layered memory (project cards, cases, patterns, rules) that the model reads before work and writes back after. |
+| **Adaptive task routing** | Deterministically selects L0–L3 governance before edits, so small local changes stay fast while risky boundaries trigger stronger gates. |
 | **Task packaging** | Build a self-contained task brief from project context + requirement text — injectable into any model prompt. |
 | **Spec Coding** | Create explicit Change Specs with allowed scope, non-goals, acceptance criteria, human approval, and an implementation-entry gate. |
 | **MCP tool layer** | 27 MCP tools with full `inputSchema` / `outputSchema` and a conformance suite. Any MCP client gets discoverable, validated contracts. |
@@ -102,6 +103,23 @@ bin/onboard-project.sh \
   --summary "An e-commerce mini-program" \
   --project-type uniapp-mini-program
 ```
+
+### Route before you edit
+
+The `task-routing` skill performs a cheap read-only preflight, then calls
+`route_task` to select the minimum safe workflow:
+
+| Tier | Default workflow |
+|---|---|
+| L0 | Current branch, focused edit, focused verification |
+| L1 | Necessary context, branch, implementation, verification, documentation impact |
+| L2 | Branch, task package, Change Spec + approval + Spec Gate, full verification, write-back |
+| L3 | L2 plus an extra human confirmation before production, security, destructive, or remote side effects |
+
+Risk overrides estimated effort, and rerouting with `current_tier` is
+upgrade-only. Project-specific high-priority rules in `AGENTS.md` still run
+first. See [Adaptive task routing](docs/task-routing.md) for configuration,
+MCP examples, escalation triggers, and closeout rules.
 
 ### Build a task package
 
@@ -187,7 +205,8 @@ previous ones.
 **Design principles:**
 - **Business stays out of core.** Generic engine + per-project config (`playbook.json`, `business-card.json`) only.
 - **Memory before work.** Read prior context before starting; write back after.
-- **Verify before close.** No task closed without evidence.
+- **Route before work.** Use the smallest safe workflow; risk can only raise the governance floor.
+- **Verify before close.** No task closes without evidence, `governance_tier`, and `documentation_impact`.
 - **Zero runtime dependencies.** Tooling uses Python stdlib only. Dashboard uses vanilla JS/CSS — no build step, no npm.
 - **Model-agnostic.** No LLM calls in core code. Every surface (MCP, adapters, dashboard API) dispatches through the same canonical `server.invoke()`.
 
@@ -219,6 +238,7 @@ maestro/
 │   ├── context_pack.py           #   Model-agnostic context pack emitter
 │   ├── jsonschema_mini.py        #   Zero-dep JSON Schema validator
 │   ├── task_package_builder.py   #   Build task packages from context
+│   ├── task_router.py            #   Deterministic L0-L3 task routing
 │   ├── search_memory.py          #   Search layered memory
 │   ├── register_project.py       #   Register new project shells
 │   ├── update_task_run_state.py  #   Task lifecycle state persistence
@@ -251,6 +271,7 @@ maestro/
 ├── skills/                       # Markdown skills (install per-runtime)
 ├── docs/                         # Documentation
 │   ├── ARCHITECTURE.md
+│   ├── task-routing.md
 │   └── ROADMAP.md
 │
 ├── README.md                     # You are here
@@ -266,6 +287,7 @@ These 27 tools are available via MCP, provider adapters, dashboard, and API:
 | Tool | Description |
 |---|---|
 | `search_memory` | Search project cards, cases, patterns, and rules |
+| `route_task` | Select the minimum safe L0-L3 governance tier from project policy and runtime facts |
 | `build_task_package` | Build a task brief from project context + requirement |
 | `get_project_baseline` | Read the durable project-level Spec baseline |
 | `seed_project_baseline` | Seed only a missing project baseline, preserving a curated one |
@@ -273,7 +295,7 @@ These 27 tools are available via MCP, provider adapters, dashboard, and API:
 | `approve_change_spec` | Record named human approval with a traceable source |
 | `spec_gate` | Read-only check that blocks implementation until the contract is complete and approved |
 | `register_project` | Create a new project shell from templates |
-| `update_task_run_state` | Record task lifecycle state transitions |
+| `update_task_run_state` | Record lifecycle transitions; closing requires a tier and explicit documentation impact |
 | `writeback_and_sync_memory` | Write a note into vault + sync to memory |
 | `doctor_local_skills` | Diagnose local skill installation status |
 | `validate_project` | Check project readiness (files, playbook, card, type) |

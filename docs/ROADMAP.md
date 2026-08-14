@@ -287,10 +287,37 @@ tasks.
   dirs.
 - ✅ 13 new tests; 285 total green.
 
+### P1.2 — Adaptive task routing and proportional governance ✅
+- ✅ Added a deterministic `route_task` MCP tool and `task-routing` skill. Every
+  implementation starts with a cheap read-only preflight and receives an L0-L3
+  minimum governance tier before edits begin.
+- ✅ Risk vetoes override estimated effort. Authentication, transactions,
+  shared state, public APIs/components, global configuration, dependencies,
+  security, production, destructive operations, deployment, and remote pushes
+  cannot silently enter the fast path.
+- ✅ Policy layering is global → project type → project playbook → runtime Git
+  facts. Every layer can only raise the floor; rerouting with `current_tier` is
+  monotonic and responds to scope expansion or newly discovered boundaries.
+- ✅ Lifecycle skills and generated `AGENTS.md` rules now scale by tier: L0
+  skips branch/package/spec/write-back overhead, L1 keeps a standard branch +
+  verification flow, and L2/L3 preserve Spec Coding and full governance.
+- ✅ `update_task_run_state` now enforces closeout metadata. A `closed` state
+  requires `governance_tier` plus `documentation_impact`, recording either
+  updated files or an explicit `not_needed` reason.
+- ✅ Routing decisions use a privacy-minimal JSONL log: tier, risk tags, timing,
+  previous tier, and upgrade flag only. Prompts, code, and candidate file names
+  are never persisted.
+- ✅ Usage and configuration are documented in both READMEs and
+  `docs/task-routing.md`; project-specific high-priority rules remain above
+  Maestro's proportional workflow.
+
 ## Design Principles
 
 - **Business stays out of core.** Generic engine + per-project config only.
 - **Memory before work.** Read prior context before starting; write back after.
-- **Verify before close.** No task is closed without evidence.
+- **Route before work.** Spend workflow effort in proportion to risk, with
+  monotonic escalation and no safety downgrade.
+- **Verify before close.** No task is closed without evidence and explicit
+  documentation impact.
 - **Local-first boundaries.** Real project data never leaves the user's machine
   unless they explicitly choose to.

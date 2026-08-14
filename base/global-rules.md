@@ -1,7 +1,8 @@
-# Global Rules
+# Maestro 全局规则
 
-1. Read business context before task decomposition.
-2. Follow existing project structure before introducing new patterns.
-3. State impact scope for multi-file changes.
-4. Run verification before claiming completion.
-5. Write back reusable findings after non-trivial work.
+1. 任何代码、缺陷、重构、样式、文档、配置、部署或仓库任务，修改前先执行 `task-routing` 只读预检并调用 `route_task`。
+2. 风险优先于工程量；L0～L3 路由只升不降。出现范围扩张、公共边界、接口或业务规则变化、无明确原因的验证失败时，携带 `current_tier` 重新路由。
+3. 项目 `AGENTS.md` 中标记为高优先级的业务规则先执行；Maestro 只调整不冲突的流程成本。
+4. L0 仅适用于范围明确、最多两个候选文件、无重叠未提交修改且命中项目快速信号的低风险任务。L3 用于生产、安全、权限、隐私、破坏性数据操作或远程副作用。
+5. 任务关闭前运行与等级相称的验证。`closed` 必须记录 `governance_tier` 和 `documentation_impact`；已更新文档时列出文件，跳过时使用 `not_needed` 并说明理由。
+6. 非简单任务在拆解前读取业务上下文，遵循现有项目结构，说明多文件影响范围，并写回可复用结论。
