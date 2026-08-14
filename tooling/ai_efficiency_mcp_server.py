@@ -20,6 +20,7 @@ from register_project import register_project
 from search_memory import search_memory
 from spec_coding import approve_change_spec, create_change_spec, get_project_baseline, seed_project_baseline, spec_gate
 from task_package_builder import build_task_package
+from task_router import route_task
 from temp_registry import refresh_task_temp_files, register_temp_file
 from test_doctor import audit_tests
 from tool_registry import TOOL_SPECS, get_spec
@@ -56,6 +57,7 @@ class AiEfficiencyMcpServer:
         )
         self._tools: dict[str, Callable[[JsonDict], JsonDict]] = {
             "search_memory": self._call_search_memory,
+            "route_task": self._call_route_task,
             "build_task_package": self._call_build_task_package,
             "get_project_baseline": self._call_get_project_baseline,
             "seed_project_baseline": self._call_seed_project_baseline,
@@ -152,6 +154,20 @@ class AiEfficiencyMcpServer:
             include_archived=bool(arguments.get("include_archived")),
             target=_optional_string(arguments, "target") or "knowledge",
             repo_root=_optional_string(arguments, "repo_root"),
+        )
+
+    def _call_route_task(self, arguments: JsonDict) -> JsonDict:
+        return route_task(
+            system_root=self.system_root,
+            project=_required_string(arguments, "project"),
+            requirement=_required_string(arguments, "requirement"),
+            repo_root=_required_path(arguments, "repo_root"),
+            candidate_files=_required_list(arguments, "candidate_files"),
+            observed_signals=_required_list(arguments, "observed_signals"),
+            uncertainties=_required_list(arguments, "uncertainties"),
+            requested_actions=_required_list(arguments, "requested_actions"),
+            current_tier=_optional_string(arguments, "current_tier"),
+            user_override=bool(arguments.get("user_override", False)),
         )
 
     def _call_build_task_package(self, arguments: JsonDict) -> JsonDict:

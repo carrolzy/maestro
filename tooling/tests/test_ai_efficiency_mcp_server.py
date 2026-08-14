@@ -1,10 +1,13 @@
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 from ai_efficiency_mcp_server import AiEfficiencyMcpServer, main, write_jsonl_responses
 from checkpoint import Checkpoint, list_checkpoints, save_checkpoint
+from task_router import route_task
 from update_task_run_state import update_task_run_state
 
 
@@ -47,6 +50,56 @@ def _write_templates(system_root: Path) -> None:
 
 
 class AiEfficiencyMcpServerTests(unittest.TestCase):
+    def test_route_task_tool_matches_direct_python_call(self) -> None:
+        from tool_registry import tool_names
+
+        self.assertIn("route_task", tool_names())
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            system_root = root / "system"
+            (system_root / "base").mkdir(parents=True)
+            repository_root = Path(__file__).resolve().parents[2]
+            shutil.copyfile(
+                repository_root / "base" / "task-routing-policy.json",
+                system_root / "base" / "task-routing-policy.json",
+            )
+            project_dir = system_root / "projects" / "alpha"
+            project_dir.mkdir(parents=True)
+            (project_dir / "playbook.json").write_text(
+                json.dumps(
+                    {
+                        "routing": {
+                            "fast_path_signals": ["local_scoped_style"],
+                            "risk_rules": [],
+                            "risky_paths": [],
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            (repo_root / "card.vue").write_text("<style scoped></style>\n", encoding="utf-8")
+            subprocess.run(["git", "init", "-b", "main"], cwd=repo_root, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "MCP Test"], cwd=repo_root, check=True)
+            subprocess.run(["git", "config", "user.email", "mcp@example.com"], cwd=repo_root, check=True)
+            subprocess.run(["git", "add", "card.vue"], cwd=repo_root, check=True)
+            subprocess.run(["git", "commit", "-m", "seed"], cwd=repo_root, check=True, capture_output=True)
+            arguments = {
+                "project": "alpha",
+                "requirement": "调整局部样式",
+                "repo_root": str(repo_root),
+                "candidate_files": ["card.vue"],
+                "observed_signals": ["local_scoped_style"],
+                "uncertainties": [],
+                "requested_actions": [],
+            }
+
+            direct = route_task(system_root=system_root, **arguments)
+            invoked = AiEfficiencyMcpServer(system_root=system_root).invoke("route_task", arguments)
+
+        self.assertEqual(invoked, direct)
+
     def test_initialize_returns_server_info_and_tool_capabilities(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             server = AiEfficiencyMcpServer(system_root=Path(tmp_dir))

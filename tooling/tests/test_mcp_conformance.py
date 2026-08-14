@@ -34,6 +34,22 @@ def _seed_system(root: Path) -> None:
         "# Project Baseline Spec: alpha\n\n## Status\n\n- Curated test baseline.\n",
         encoding="utf-8",
     )
+    (proj / "playbook.json").write_text(
+        json.dumps(
+            {
+                "routing": {
+                    "fast_path_signals": ["local_copy_change"],
+                    "risk_rules": [],
+                    "risky_paths": [],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    base = root / "base"
+    base.mkdir()
+    repository_policy = Path(__file__).resolve().parents[2] / "base" / "task-routing-policy.json"
+    (base / "task-routing-policy.json").write_text(repository_policy.read_text(encoding="utf-8"), encoding="utf-8")
     templates = root / "templates"
     templates.mkdir(parents=True, exist_ok=True)
     for name in ("business-context", "project-override", "task-context", "project-baseline"):
@@ -125,6 +141,15 @@ class McpToolContractConformanceTests(unittest.TestCase):
 
             valid_args = {
                 "search_memory": {"project": "alpha", "query": "alpha"},
+                "route_task": {
+                    "project": "alpha",
+                    "requirement": "Update alpha copy.",
+                    "repo_root": str(system_root),
+                    "candidate_files": ["projects/alpha/business-context.md"],
+                    "observed_signals": ["local_copy_change"],
+                    "uncertainties": [],
+                    "requested_actions": [],
+                },
                 "build_task_package": {
                     "project": "alpha",
                     "requirement": "alpha consistency requirement",
