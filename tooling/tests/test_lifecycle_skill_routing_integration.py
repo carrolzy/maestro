@@ -1,3 +1,5 @@
+"""Cross-skill integration contract for proportional lifecycle routing."""
+
 import unittest
 from pathlib import Path
 
