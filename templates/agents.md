@@ -1,22 +1,36 @@
 <!-- maestro:managed:start -->
-# Maestro Project Workflow
+# Maestro 项目工作流
 
-This repository is registered with the local Maestro agents system.
+本仓库已注册到本地 Maestro 智能体系统。
 
-- Project slug: `{{PROJECT_SLUG}}`
-- Maestro system root: `{{MAESTRO_ROOT}}`
+- 项目标识：`{{PROJECT_SLUG}}`
+- Maestro 系统根目录：`{{MAESTRO_ROOT}}`
 
-For non-trivial feature, bug-fix, refactor, debugging, or investigation work:
+## 规则优先级
 
-1. Use `project-intake` with the registered project slug to create a task package before editing code.
-2. Use `memory-read-first` to read project context and relevant project memory before implementation.
-3. Create a Change Spec through the Maestro MCP tools, with explicit allowed files, behavior changes, non-goals, acceptance criteria, and verification.
-4. Do not edit business code until `approve_change_spec` records a named approver and source reference, then `spec_gate` passes. A request to change module A does not authorize changing module B, adding a fallback, or refactoring adjacent code.
-5. Record progress checkpoints after meaningful edits.
-6. Use `verification-before-close` and run focused verification before declaring completion.
-7. Use `writeback-and-sync` to write the completed result back to Obsidian and project memory.
+仓库中标记外的“高优先级项目规则”优先于本受管工作流。命中技术评审文档、项目分支、字体或其他项目专属规则时，先执行对应规则，再执行不冲突的 Maestro 步骤。
 
-For simple questions or harmless one-line edits, do not create a task package unless the user requests durable tracking.
+## 统一入口：任务路由
 
-Do not replace this managed block manually. Repository-specific rules may be added outside the markers.
+凡准备进行代码、缺陷、重构、样式、文档、配置、部署或仓库操作，修改前先使用 `task-routing`：
+
+1. 从用户 Prompt 提炼真实目标与非目标。
+2. 执行低成本只读预检：Git 状态、候选文件、公共/共享边界、风险信号、不确定项和外部操作。
+3. 调用 MCP `route_task` 一次，报告“等级 + 核心理由”。风险优先于工程量；路由结果只升不降。
+4. 按等级执行：
+   - L0：当前分支快速修改 + 针对性验证；跳过分支、任务包、Change Spec、生命周期记录和写回。
+   - L1：必要上下文 + 创建分支 + 实现 + 验证 + 文档影响检查；不强制任务包或 Change Spec。
+   - L2：创建分支 + `project-intake` + `memory-read-first` + Change Spec + 明确审批 + `spec_gate` + 完整验证 + 文档影响检查 + `writeback-and-sync`。
+   - L3：执行 L2 全流程，并在生产、安全、权限、数据破坏或外部副作用前获得额外人工确认。
+
+## 执行约束
+
+- 用户明确要求创建分支，或路由为 L1/L2/L3 时，执行仓库专属分支工作流；L0 默认在当前分支完成。
+- 目标文件存在与本任务重叠的未提交修改时暂停；不得自行 stash、commit、reset 或覆盖。
+- 实现中若范围扩张、进入公共/共享边界、接口或业务规则变化、验证原因不明地失败，必须携带 `current_tier` 重新调用 `route_task`；不得自动降级。
+- L2/L3 未获得明确审批且 `spec_gate` 未通过前，不得编辑业务代码。修改模块 A 不代表可以修改模块 B、增加兜底或顺带重构。
+- L1～L3 关闭前必须给出 `documentation_impact`：列出已更新文档，或说明 `not_needed` 及理由。
+- 每次有意义的修改后记录进度检查点；声明完成前运行与风险等级相称的验证。
+
+此区块由 Maestro 托管，请勿手动替换。仓库专属规则应添加在标记之外。
 <!-- maestro:managed:end -->

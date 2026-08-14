@@ -31,6 +31,18 @@ def _write_templates(system_root: Path) -> None:
 
 
 class RegisterProjectTests(unittest.TestCase):
+    def test_repository_agents_template_uses_chinese_task_routing_entry(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        content = (root / "templates" / "agents.md").read_text(encoding="utf-8")
+
+        self.assertIn("# Maestro 项目工作流", content)
+        self.assertNotIn("# Maestro Project Workflow", content)
+        self.assertLess(content.index("task-routing"), content.index("project-intake"))
+        for tier in ("L0", "L1", "L2", "L3"):
+            self.assertIn(tier, content)
+        self.assertIn("只升不降", content)
+        self.assertIn("高优先级项目规则", content)
+
     def test_register_project_creates_canonical_project_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             system_root = Path(tmp_dir)
@@ -224,6 +236,41 @@ class RegisterProjectTests(unittest.TestCase):
             self.assertIn("project=sample-project", content)
             self.assertIn("Keep this content.", content)
             self.assertEqual(content.count("<!-- maestro:managed:start -->"), 1)
+
+    def test_repository_template_rebind_preserves_high_priority_user_rules(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            system_root = Path(tmp_dir) / "system"
+            repo_root = Path(tmp_dir) / "business-repo"
+            repo_root.mkdir()
+            _write_templates(system_root)
+            repository_template = Path(__file__).resolve().parents[2] / "templates" / "agents.md"
+            (system_root / "templates" / "agents.md").write_text(
+                repository_template.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Sample project summary.",
+            )
+            user_rules = "# 高优先级项目规则\n\n## 规则一\n\n保留我。\n"
+            (repo_root / "AGENTS.md").write_text(
+                "<!-- maestro:managed:start -->\nold\n<!-- maestro:managed:end -->\n\n" + user_rules,
+                encoding="utf-8",
+            )
+
+            register_project(
+                system_root=system_root,
+                project="sample-project",
+                summary="Ignored during attach.",
+                repo_root=repo_root,
+            )
+
+            content = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("task-routing", content)
+            self.assertIn(user_rules.strip(), content)
+            self.assertEqual(content.count("<!-- maestro:managed:start -->"), 1)
+            self.assertEqual(content.count("# 高优先级项目规则"), 1)
 
     def test_cli_register_project_writes_project_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
