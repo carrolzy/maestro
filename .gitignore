@@ -59,6 +59,7 @@
 
 # Scratch / temp work area
 /.codex-temp/
+/.worktrees/
 
 # === Heavy / generated artifacts ===
 # Bundled scraping MCP carries a large venv + downloads; excluded wholesale.
